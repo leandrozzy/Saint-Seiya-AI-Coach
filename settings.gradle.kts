@@ -15,7 +15,7 @@ pluginManagement {
         id("org.jetbrains.kotlin.android") version "2.1.0"
         id("org.jetbrains.kotlin.jvm") version "2.1.0"
         id("org.jetbrains.kotlin.plugin.compose") version "2.1.0"
-        id("com.google.devtools.ksp") version "2.1.0-1.0.29"
+        id("org.jetbrains.kotlin.kapt") version "2.1.0"
     }
 }
 

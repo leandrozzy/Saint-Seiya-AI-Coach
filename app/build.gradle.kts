@@ -2,7 +2,7 @@ plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.compose")
-    id("com.google.devtools.ksp")
+    id("org.jetbrains.kotlin.kapt")
 }
 
 // versionCode sempre crescente: número da execução do GitHub Actions (permite atualizar sobre a versão instalada).
@@ -55,7 +55,7 @@ android {
     lint { abortOnError = false }
 }
 
-ksp { arg("room.schemaLocation", "$projectDir/schemas") }
+kapt { arguments { arg("room.schemaLocation", "$projectDir/schemas") } }
 
 dependencies {
     implementation(project(":core"))
@@ -71,7 +71,7 @@ dependencies {
     implementation("androidx.core:core-ktx:1.15.0")
     implementation("androidx.room:room-runtime:2.6.1")
     implementation("androidx.room:room-ktx:2.6.1")
-    ksp("androidx.room:room-compiler:2.6.1")
+    kapt("androidx.room:room-compiler:2.6.1")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.9.0")
     implementation("com.google.mlkit:text-recognition:16.0.1")
