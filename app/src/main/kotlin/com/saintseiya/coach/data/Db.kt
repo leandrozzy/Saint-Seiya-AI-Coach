@@ -19,7 +19,7 @@ import androidx.room.RoomDatabase
     exportSchema = true,
 )
 abstract class CoachDb : RoomDatabase() {
-    abstract fun dao(): Dao
+    abstract fun dao(): CoachDao
 
     companion object {
         @Volatile private var inst: CoachDb? = null

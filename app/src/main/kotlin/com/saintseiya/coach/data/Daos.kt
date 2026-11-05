@@ -4,7 +4,7 @@ import androidx.room.*
 import kotlinx.coroutines.flow.Flow
 
 @Dao
-interface Dao {
+interface CoachDao {
     // contas
     @Query("SELECT * FROM account ORDER BY id") fun accounts(): Flow<List<AccountEntity>>
     @Query("SELECT * FROM account ORDER BY id") suspend fun accountsOnce(): List<AccountEntity>
