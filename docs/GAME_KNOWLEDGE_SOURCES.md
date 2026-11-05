@@ -1,0 +1,3 @@
+# Fontes de conhecimento do jogo
+Pesquisa em 2026-11-05 (busca web): não foi encontrada fonte confiável e atual com roster/mecânicas verificáveis (resultados eram lojas de apps, notícias antigas e páginas de baixa qualidade). Confirmado apenas: jogo gratuito da Tencent, Android/iOS, modo Galactic Duel com Pick & Ban (descrições de loja/imprensa, sem data de patch). Versão na App Store: 1.6.58 (atualizada em mar/2026, conteúdo da atualização não confirmado).
+Por isso **o app não traz catálogo embutido**: o catálogo é aprendido do que você confirma. Fontes a verificar manualmente antes de codificar regras: anigacha.com/saint-seiya-awakening, yukishi.wixsite.com/website/builds, o vídeo indicado — checar data/servidor.
