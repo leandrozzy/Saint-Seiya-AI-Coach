@@ -1,0 +1,94 @@
+name: Build & Release APK
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      # Chave de assinatura FIXA vem dos secrets (mesma chave em toda build => o Android aceita atualizar por cima).
+      # Sem secrets: gera chave temporária só para validar a compilação; o release NÃO é publicado (não seria atualizável).
+      - name: Keystore
+        id: ks
+        env:
+          KS_B64: ${{ secrets.COACH_KEYSTORE_BASE64 }}
+          KS_PASS: ${{ secrets.COACH_KEYSTORE_PASSWORD }}
+        run: |
+          if [ -n "$KS_B64" ]; then
+            echo "$KS_B64" | base64 -d > "$RUNNER_TEMP/coach.jks"
+            echo "COACH_KEYSTORE_FILE=$RUNNER_TEMP/coach.jks" >> "$GITHUB_ENV"
+            echo "COACH_KEYSTORE_PASSWORD=$KS_PASS" >> "$GITHUB_ENV"
+            echo "COACH_KEY_ALIAS=coach" >> "$GITHUB_ENV"
+            echo "COACH_KEY_PASSWORD=$KS_PASS" >> "$GITHUB_ENV"
+            echo "stable=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::warning::Sem secrets de assinatura: usando chave TEMPORÁRIA (APK não atualizável). Veja docs/UPDATES.md."
+            keytool -genkeypair -keystore "$RUNNER_TEMP/tmp.jks" -alias coach -keyalg RSA -keysize 2048 -validity 30 \
+              -storepass temporary1 -keypass temporary1 -dname "CN=temp"
+            echo "COACH_KEYSTORE_FILE=$RUNNER_TEMP/tmp.jks" >> "$GITHUB_ENV"
+            echo "COACH_KEYSTORE_PASSWORD=temporary1" >> "$GITHUB_ENV"
+            echo "COACH_KEY_ALIAS=coach" >> "$GITHUB_ENV"
+            echo "COACH_KEY_PASSWORD=temporary1" >> "$GITHUB_ENV"
+            echo "stable=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Testes unitários (lógica central)
+        run: ./gradlew :core:test --stacktrace
+
+      - name: Compilar APK (release assinado) + lint
+        run: ./gradlew :app:assembleRelease :app:lintRelease --stacktrace
+
+      - name: Nomear artefato
+        run: |
+          mkdir -p dist
+          cp app/build/outputs/apk/release/app-release.apk "dist/SaintSeiyaAICoach.apk"
+          ls -l dist
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SaintSeiyaAICoach-apk
+          path: dist/SaintSeiyaAICoach.apk
+          retention-days: 30
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: reports
+          path: |
+            core/build/reports/tests
+            app/build/reports/lint-results-release.html
+          if-no-files-found: ignore
+
+      # Um release por build (tag build-<run_number> == versionCode): é o que o app consulta para se atualizar.
+      - name: Publicar release
+        if: github.event_name != 'pull_request' && steps.ks.outputs.stable == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="build-${{ github.run_number }}"
+          gh release create "$TAG" dist/SaintSeiyaAICoach.apk \
+            --target "${{ github.sha }}" \
+            --title "Build ${{ github.run_number }}" \
+            --notes "Commit ${{ github.sha }} (${{ github.ref_name }}). Instale por cima da versão atual: seus dados são mantidos." \
+            --latest
