@@ -26,11 +26,11 @@ android {
     signingConfigs {
         // Mesma chave em TODA build => o Android aceita instalar por cima (atualização). Ver docs/UPDATES.md.
         create("release") {
-            val ks = System.getenv("COACH_KEYSTORE_FILE") ?: "${System.getProperty("user.home")}/.android/debug.keystore"
+            val ks = System.getenv("COACH_KEYSTORE_FILE") ?: "${rootDir}/keystore/coach-release.jks"
             storeFile = file(ks)
-            storePassword = System.getenv("COACH_KEYSTORE_PASSWORD") ?: "android"
-            keyAlias = System.getenv("COACH_KEY_ALIAS") ?: "androiddebugkey"
-            keyPassword = System.getenv("COACH_KEY_PASSWORD") ?: "android"
+            storePassword = System.getenv("COACH_KEYSTORE_PASSWORD") ?: "coachsideload"
+            keyAlias = System.getenv("COACH_KEY_ALIAS") ?: "coach"
+            keyPassword = System.getenv("COACH_KEY_PASSWORD") ?: "coachsideload"
         }
     }
 

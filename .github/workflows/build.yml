@@ -28,7 +28,7 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
 
       # Chave de assinatura FIXA vem dos secrets (mesma chave em toda build => o Android aceita atualizar por cima).
-      # Sem secrets: gera chave temporária só para validar a compilação; o release NÃO é publicado (não seria atualizável).
+      # Sem secrets: usa a chave fixa de keystore/ (mesma em toda build => atualizável).
       - name: Keystore
         id: ks
         env:
@@ -43,14 +43,8 @@ jobs:
             echo "COACH_KEY_PASSWORD=$KS_PASS" >> "$GITHUB_ENV"
             echo "stable=true" >> "$GITHUB_OUTPUT"
           else
-            echo "::warning::Sem secrets de assinatura: usando chave TEMPORÁRIA (APK não atualizável). Veja docs/UPDATES.md."
-            keytool -genkeypair -keystore "$RUNNER_TEMP/tmp.jks" -alias coach -keyalg RSA -keysize 2048 -validity 30 \
-              -storepass temporary1 -keypass temporary1 -dname "CN=temp"
-            echo "COACH_KEYSTORE_FILE=$RUNNER_TEMP/tmp.jks" >> "$GITHUB_ENV"
-            echo "COACH_KEYSTORE_PASSWORD=temporary1" >> "$GITHUB_ENV"
-            echo "COACH_KEY_ALIAS=coach" >> "$GITHUB_ENV"
-            echo "COACH_KEY_PASSWORD=temporary1" >> "$GITHUB_ENV"
-            echo "stable=false" >> "$GITHUB_OUTPUT"
+            # Sem secrets: usa a chave de sideload versionada em keystore/ (repo PRIVADO; ver docs/UPDATES.md).
+            echo "stable=true" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Testes unitários (lógica central)
