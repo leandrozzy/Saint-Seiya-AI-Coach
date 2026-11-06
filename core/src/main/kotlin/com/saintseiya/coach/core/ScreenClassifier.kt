@@ -6,7 +6,7 @@ package com.saintseiya.coach.core
  * por isso toda observação guarda o tipo inferido e o score (visível em Diagnóstico).
  */
 object ScreenClassifier {
-    private val levelRegex = Regex("^(?:lv|lvl|nv|nivel|nível|level)\\.?\\s*(\\d{1,3})$", RegexOption.IGNORE_CASE)
+    private val levelRegex = Regex("(?:^|[^\\p{L}])(?:lv|lvl|nv|nivel|nível|level)\\.?\\s*(\\d{1,3})(?!\\d)", RegexOption.IGNORE_CASE)
 
     val keywords: Map<ScreenKind, List<String>> = mapOf(
         ScreenKind.KNIGHT_ROSTER to listOf("cavaleiros", "caballeros", "knights", "saints", "colecao", "collection", "coleccion", "ordenar", "sort", "filtrar", "filter"),
@@ -24,8 +24,10 @@ object ScreenClassifier {
         ScreenKind.HOME to listOf("legiao", "legion", "santuario", "sanctuary", "loja", "shop", "aventura", "adventure", "sorteio"),
     )
 
-    fun levelCount(lines: List<TextLine>) = lines.count { levelRegex.matches(it.text.trim()) }
-    fun levelOf(text: String): Int? = levelRegex.matchEntire(text.trim())?.groupValues?.get(1)?.toIntOrNull()
+    fun levelCount(lines: List<TextLine>) = lines.count { levelRegex.containsMatchIn(it.text) }
+    fun levelOf(text: String): Int? = levelRegex.find(text)?.groupValues?.get(1)?.toIntOrNull()
+    /** Texto da linha antes do token de nível ("Seiya Lv.80" -> "Seiya"). */
+    fun textBeforeLevel(text: String): String = levelRegex.find(text)?.let { text.substring(0, it.range.first + (if (it.value.firstOrNull()?.isLetter() == false) 1 else 0)).trim() } ?: text
 
     fun classify(lines: List<TextLine>): Pair<ScreenKind, Double> {
         if (lines.isEmpty()) return ScreenKind.UNKNOWN to 0.0
@@ -42,7 +44,7 @@ object ScreenClassifier {
         }
         val lv = levelCount(lines)
         // sinais estruturais
-        if (lv >= 4) scores.merge(ScreenKind.KNIGHT_ROSTER, 2.0, Double::plus)
+        if (lv >= 3) scores.merge(ScreenKind.KNIGHT_ROSTER, 2.0, Double::plus)
         if (lv in 1..3) scores.merge(ScreenKind.KNIGHT_DETAIL, 0.5, Double::plus)
         if (lv in 4..8) scores.merge(ScreenKind.TEAM_FORMATION, 0.5, Double::plus)
         // resultado de batalha tem prioridade sobre o resto quando bem evidente

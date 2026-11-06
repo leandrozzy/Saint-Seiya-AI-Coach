@@ -10,6 +10,8 @@ data class IngestResult(
     val resourcesUpdated: Int,
     val issues: Int,
     val readable: Boolean,
+    val lines: Int = 0,
+    val score: Double = 0.0,
 )
 
 class Repository(val db: CoachDb) {
@@ -97,7 +99,7 @@ class Repository(val db: CoachDb) {
                 knightsNew = s.knightsNew + newK, knightsUpdated = s.knightsUpdated + updK,
                 resourcesUpdated = s.resourcesUpdated + resUpd, issuesOpened = s.issuesOpened + iss,
             ))
-            IngestResult(analysis.kind, newK, updK, resUpd, iss, readable)
+            IngestResult(analysis.kind, newK, updK, resUpd, iss, readable, analysis.lineCount, analysis.kindScore)
         }
 
     // ---- correções manuais (trilha de auditoria) ----

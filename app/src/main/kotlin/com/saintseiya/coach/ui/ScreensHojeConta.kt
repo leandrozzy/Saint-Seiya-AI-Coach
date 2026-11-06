@@ -48,6 +48,12 @@ fun HojeScreen(vm: AppViewModel, act: Actions, nav: Nav) {
     val confirmed = knights.count { it.status == "CONFIRMED" }
     val candidates = knights.count { it.status == "CANDIDATE" }
     var showLast by remember { mutableStateOf(false) }
+    var showHow by remember { mutableStateOf(false) }
+    if (showHow) AlertDialog(onDismissRequest = { showHow = false },
+        title = { Text("Antes de começar") },
+        text = { Text("Na janela do Android que vai abrir, escolha “Tela inteira” (ou o app do jogo), e toque em “Iniciar agora”.\n\nDepois abra o jogo e navegue devagar: deixe cada tela (lista de cavaleiros, ficha, formação) parada por 2–3 segundos. A leitura ao vivo aparece aqui em Hoje: se “quadros recebidos” subir, a captura está funcionando.") },
+        confirmButton = { TextButton({ showHow = false; act.onStart() }) { Text("Entendi, iniciar") } },
+        dismissButton = { TextButton({ showHow = false }) { Text("Cancelar") } })
 
     report?.let { r ->
         AlertDialog(onDismissRequest = { CaptureState.setReport(null) },
@@ -68,7 +74,11 @@ fun HojeScreen(vm: AppViewModel, act: Actions, nav: Nav) {
                     H("Leitura em andamento")
                     Body("Telas vistas: ${live.framesSeen} · alteradas: ${live.framesChanged} · analisadas: ${live.framesProcessed}")
                     Body("Cavaleiros novos: ${live.knightsNew} · atualizados: ${live.knightsUpdated}")
-                    live.lastKind?.let { Small("Última tela reconhecida: $it") }
+                    Body("Quadros recebidos do Android: ${live.framesAcquired}${live.captureSize?.let { " ($it)" } ?: ""}", muted = true)
+                    Body("Última tela: ${live.lastKind ?: "—"} · linhas de texto lidas: ${live.lastLineCount}", muted = true)
+                    if (live.framesAcquired == 0) Small("⚠ Nenhum quadro recebido ainda. Se persistir, encerre e inicie de novo escolhendo “Tela inteira”.")
+                    if (live.lastFrameBlack) Small("⚠ O quadro está preto: o jogo pode bloquear captura de tela ou foi escolhido o app errado.")
+                    if (live.framesAcquired > 3 && live.framesProcessed > 0 && live.lastLineCount == 0) Small("⚠ Quadros chegam mas o OCR não achou texto. Veja Configurações → Diagnóstico.")
                     live.lastMessage?.let { Small(it) }
                     Button(onClick = act.onStop, colors = ButtonDefaults.buttonColors(containerColor = C.bad), modifier = Modifier.heightIn(min = 48.dp)) { Text("Encerrar sessão") }
                 } else {
@@ -76,7 +86,7 @@ fun HojeScreen(vm: AppViewModel, act: Actions, nav: Nav) {
                     Body(if (confirmed == 0) "Toque em Iniciar leitura, autorize a captura, abra o jogo e navegue pela lista de cavaleiros. O Coach lê só o que aparece na tela, no próprio aparelho."
                     else "Inicie uma leitura e navegue pelo jogo; o que não for visto é mantido como está.")
                     live.lastMessage?.let { Small(it) }
-                    FlowRowButtons(act, onLast = { showLast = true }, hasLast = sessions.isNotEmpty(), onPend = { nav.go(1, 5) })
+                    FlowRowButtons(act.copy(onStart = { showHow = true }), onLast = { showLast = true }, hasLast = sessions.isNotEmpty(), onPend = { nav.go(1, 5) })
                 }
             }
         }

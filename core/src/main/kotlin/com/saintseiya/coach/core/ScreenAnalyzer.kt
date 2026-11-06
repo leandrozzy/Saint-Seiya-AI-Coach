@@ -45,7 +45,15 @@ object ScreenAnalyzer {
         val used = HashSet<TextLine>()
         val out = ArrayList<KnightReading>()
         val levels = lines.filter { ScreenClassifier.levelOf(it.text) != null }
+        // "Seiya Lv.80" na mesma linha
         for (lv in levels) {
+            val before = ScreenClassifier.textBeforeLevel(lv.text)
+            if (before.isNotBlank() && isNameLike(before)) {
+                out += KnightReading(before, ScreenClassifier.levelOf(lv.text)!!, (0.85 * minOf(1f, lv.confidence).toDouble()).coerceAtLeast(0.55))
+                used += lv
+            }
+        }
+        for (lv in levels.filter { it !in used }) {
             val level = ScreenClassifier.levelOf(lv.text)!!
             val best = names.filter { it !in used }
                 .map { it to hypot(it.cx - lv.cx, it.cy - lv.cy) / diag }

@@ -27,6 +27,10 @@ class Prefs(ctx: Context) {
     var lastError: String?
         get() = sp.getString("lastError", null)
         set(v) { sp.edit().putString("lastError", v).apply() }
+    /** Texto OCR da última tela analisada (para diagnóstico/calibração). */
+    var lastSample: String?
+        get() = sp.getString("lastSample", null)
+        set(v) { sp.edit().putString("lastSample", v).apply() }
     var lastUpdateCheck: Long
         get() = sp.getLong("lastUpdateCheck", 0L)
         set(v) { sp.edit().putLong("lastUpdateCheck", v).apply() }

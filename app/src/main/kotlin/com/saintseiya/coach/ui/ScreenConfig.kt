@@ -162,6 +162,14 @@ private fun Diagnostico(vm: AppViewModel) {
             Body("Build ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})")
             Body("Pode instalar atualizações: ${if (Updater.canInstall(ctx)) "sim" else "não (permissão pendente)"}")
             TextButton({ prefs.lastError = null }) { Text("Limpar último erro") } } }
+        item {
+            SCard(accent = C.celeste) {
+                H("Última tela lida (texto do OCR)")
+                Body("Tipo: ${live.lastKind ?: "—"} · linhas: ${live.lastLineCount} · pontuação de classificação: ${"%.1f".format(live.lastScore)} · captura: ${live.captureSize ?: "—"} · quadros recebidos: ${live.framesAcquired}")
+                val sample = if (live.lastText.isNotEmpty()) live.lastText.joinToString("\n") else prefs.lastSample
+                if (sample.isNullOrBlank()) Small("Nenhum texto lido ainda. Rode uma leitura ou importe um print.") else { Small("Isto é exatamente o que o app enxergou (use para calibrar):"); Body(sample.take(1500)) }
+            }
+        }
         items(features) { f -> SCard { Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { Text(f.name, Modifier.weight(1f), color = C.text, fontWeight = FontWeight.SemiBold); StatusChip(f.status) }; Small(f.note) } }
     }
 }

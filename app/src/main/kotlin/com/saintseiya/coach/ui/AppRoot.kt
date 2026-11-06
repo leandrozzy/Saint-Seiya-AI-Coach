@@ -20,7 +20,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import android.content.res.Configuration
 
-class Actions(val onStart: () -> Unit, val onStop: () -> Unit, val onPickImages: () -> Unit)
+data class Actions(val onStart: () -> Unit, val onStop: () -> Unit, val onPickImages: () -> Unit)
 
 /** Navegação com estado preservado: aba principal + sub-aba por tela. */
 class Nav {

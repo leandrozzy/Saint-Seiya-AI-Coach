@@ -146,3 +146,13 @@ class TeamTest {
         assertTrue(a.cost.contains("Desconhecido")); assertTrue(a.confidence < 0.5)
     }
 }
+
+class InlineLevelTest {
+    @Test fun nameAndLevelOnSameLine() {
+        val lines = listOf(line("Seiya Lv.45", 100, 300), line("Shiryu Nv 40", 400, 300), line("Hyoga LV.38", 700, 300), line("Cavaleiros", 0, 0))
+        val a = ScreenAnalyzer.analyze(lines, 2400, 1080)
+        assertEquals(ScreenKind.KNIGHT_ROSTER, a.kind)
+        assertEquals(mapOf("Seiya" to 45, "Shiryu" to 40, "Hyoga" to 38), a.knights.associate { it.rawName to it.level })
+    }
+    @Test fun levelTokenAnywhere() { assertEquals(80, ScreenClassifier.levelOf("Lv.80/100")); assertNull(ScreenClassifier.levelOf("Level up")) }
+}

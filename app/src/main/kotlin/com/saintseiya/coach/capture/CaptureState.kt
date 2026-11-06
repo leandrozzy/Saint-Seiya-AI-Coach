@@ -14,6 +14,12 @@ data class LiveState(
     val lastKind: String? = null,
     val lastMessage: String? = null,
     val startedAt: Long = 0,
+    val framesAcquired: Int = 0,      // quadros realmente recebidos do Android
+    val captureSize: String? = null,  // ex.: 1600x720
+    val lastLineCount: Int = 0,
+    val lastScore: Double = 0.0,
+    val lastText: List<String> = emptyList(),
+    val lastFrameBlack: Boolean = false,
 )
 
 /** Resumo mostrado ao encerrar. Nunca diz "sucesso" quando nada foi capturado. */

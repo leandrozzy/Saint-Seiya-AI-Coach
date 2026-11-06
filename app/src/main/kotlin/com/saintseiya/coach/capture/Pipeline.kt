@@ -36,8 +36,12 @@ class Pipeline(private val repo: Repository) {
         return out
     }
 
+    @Volatile var lastTexts: List<String> = emptyList()
+
     suspend fun process(accountId: Long, sessionId: Long, bmp: Bitmap, hash: Long): IngestResult {
         val lines = ocr(bmp)
+        lastTexts = lines.map { it.text }.take(60)
+        com.saintseiya.coach.CoachApp.instance.prefs.lastSample = lastTexts.joinToString("\n").take(4000)
         val analysis = ScreenAnalyzer.analyze(lines, bmp.width, bmp.height)
         val names = ScreenAnalyzer.allNameCandidates(lines)
         return repo.ingest(accountId, sessionId, analysis, names, hash, System.currentTimeMillis())
