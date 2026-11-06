@@ -176,12 +176,14 @@ private fun Diagnostico(vm: AppViewModel) {
             var size by remember { mutableIntStateOf(com.saintseiya.coach.capture.DiagLog.read(ctx).length) }
             SCard {
                 H("Log de calibração (texto do OCR)")
-                Body("Guarda localmente, tela a tela, o texto que o OCR leu e o que foi aplicado — sem imagens. Serve para ajustar o reconhecimento ao jogo real. Atual: ${size / 1000} KB.")
+                Body("Guarda localmente, uma vez por tela distinta (repetidas são ignoradas), o texto que o OCR leu e o que foi aplicado — sem imagens. Serve para ajustar o reconhecimento ao jogo real. Atual: ${size / 1000} KB.")
                 Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) { Text("Gravar log", Modifier.weight(1f), color = C.text); Switch(logOn, { logOn = it; prefs.diagLog = it }) }
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Button({ clip.setText(androidx.compose.ui.text.AnnotatedString(com.saintseiya.coach.capture.DiagLog.read(ctx).takeLast(60000))) }, enabled = size > 0) { Text("Copiar") }
+                    var part by remember { mutableIntStateOf(0) }
+                    val parts = remember(size, part) { com.saintseiya.coach.capture.DiagLog.parts(ctx) }
+                    Button({ if (parts.isNotEmpty()) { clip.setText(androidx.compose.ui.text.AnnotatedString(parts[part % parts.size])); part++ } }, enabled = size > 0) { Text("Copiar parte ${(part % maxOf(parts.size, 1)) + 1}/${maxOf(parts.size, 1)}") }
                     OutlinedButton({
-                        val t = com.saintseiya.coach.capture.DiagLog.read(ctx).takeLast(60000)
+                        val t = (com.saintseiya.coach.capture.DiagLog.parts(ctx).firstOrNull() ?: "")
                         ctx.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, t), "Compartilhar diagnóstico").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
                     }, enabled = size > 0) { Text("Compartilhar") }
                     TextButton({ com.saintseiya.coach.capture.DiagLog.clear(ctx); size = 0 }) { Text("Limpar") }

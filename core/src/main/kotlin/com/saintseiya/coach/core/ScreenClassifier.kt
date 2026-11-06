@@ -21,6 +21,7 @@ object ScreenClassifier {
         ScreenKind.BATTLE to listOf("auto", "pausar", "pause", "rodada", "round", "turno", "turn", "ultimate", "skip"),
         ScreenKind.BATTLE_RESULT to listOf("vitoria", "victory", "victoria", "derrota", "defeat", "recompensas", "rewards", "resultado", "result"),
         ScreenKind.EVENTS to listOf("evento", "event", "evento", "missao", "quest", "mission", "diaria", "daily", "semanal", "weekly"),
+        ScreenKind.LOADING to listOf("iniciar jogo", "start game", "repair client", "verificando arquivos", "checking resources", "carregando", "loading", "atualizando recursos", "baixando"),
         ScreenKind.HOME to listOf("legiao", "legion", "santuario", "sanctuary", "loja", "shop", "aventura", "adventure", "sorteio"),
     )
 
@@ -42,6 +43,8 @@ object ScreenClassifier {
             }
             scores[kind] = s
         }
+        // palavras muito específicas de login/atualização valem por duas
+        if (folded.any { it.contains("iniciar jogo") || it.contains("repair client") || it.contains("start game") }) scores.merge(ScreenKind.LOADING, 1.0, Double::plus)
         val lv = levelCount(lines)
         // sinais estruturais
         if (lv >= 3) scores.merge(ScreenKind.KNIGHT_ROSTER, 2.0, Double::plus)

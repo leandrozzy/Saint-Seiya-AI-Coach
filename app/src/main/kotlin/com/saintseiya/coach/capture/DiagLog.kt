@@ -14,16 +14,30 @@ object DiagLog {
     private fun file(ctx: Context) = File(ctx.filesDir, "ocr-diagnostico.log")
     private val fmt get() = SimpleDateFormat("dd/MM HH:mm:ss", Locale.US)
 
-    @Synchronized fun append(ctx: Context, kind: String, score: Double, size: String, lines: List<String>, applied: String) {
+    private val seen = LinkedHashSet<String>()
+
+    @Synchronized fun append(ctx: Context, sig: String, kind: String, score: Double, size: String, lines: List<String>, applied: String) {
+        if (!seen.add(sig)) return // mesma tela já registrada
+        if (seen.size > 300) seen.remove(seen.first())
         val f = file(ctx)
         val sb = StringBuilder()
         sb.append("=== ").append(fmt.format(Date())).append(" | ").append(kind).append(" | score ").append("%.1f".format(score))
             .append(" | ").append(lines.size).append(" linhas | ").append(size).append(" | ").append(applied).append('\n')
-        lines.take(80).forEach { sb.append(it.replace('\n', ' ')).append('\n') }
+        lines.take(40).forEach { sb.append(it.replace('\n', ' ')).append('\n') }
         f.appendText(sb.toString())
         if (f.length() > MAX) f.writeText(f.readText().takeLast(MAX * 2 / 3))
     }
 
     @Synchronized fun read(ctx: Context): String = file(ctx).takeIf { it.exists() }?.readText().orEmpty()
-    @Synchronized fun clear(ctx: Context) { file(ctx).delete() }
+    @Synchronized fun clear(ctx: Context) { file(ctx).delete(); seen.clear() }
+
+    /** Partes de ~9000 caracteres, da mais recente para a mais antiga (cabem numa mensagem de chat). */
+    fun parts(ctx: Context): List<String> {
+        val t = read(ctx); if (t.isEmpty()) return emptyList()
+        val entries = t.split("=== ").filter { it.isNotBlank() }.map { "=== $it" }.reversed()
+        val out = ArrayList<String>(); var cur = StringBuilder()
+        for (e in entries) { if (cur.length + e.length > 9000 && cur.isNotEmpty()) { out += cur.toString(); cur = StringBuilder() }; cur.append(e) }
+        if (cur.isNotEmpty()) out += cur.toString()
+        return out
+    }
 }

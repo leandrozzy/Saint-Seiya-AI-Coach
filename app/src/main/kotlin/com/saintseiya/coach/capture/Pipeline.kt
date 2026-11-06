@@ -13,6 +13,9 @@ import kotlinx.coroutines.tasks.await
 class Pipeline(private val repo: Repository) {
     private val recognizer by lazy { TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS) }
 
+    private val selfOverlay = Regex("^[•●·■↗]")
+    private var lastSig: String? = null
+
     fun luma9x8(bmp: Bitmap): IntArray {
         val small = Bitmap.createScaledBitmap(bmp, 9, 8, true)
         val out = IntArray(72)
@@ -31,6 +34,7 @@ class Pipeline(private val repo: Repository) {
         val out = ArrayList<TextLine>()
         for (b in res.textBlocks) for (l in b.lines) {
             val r = l.boundingBox ?: continue
+            if (selfOverlay.containsMatchIn(l.text.trim())) continue // contador/botões da bolha do próprio Coach
             out += TextLine(l.text, r.left, r.top, r.right, r.bottom, l.confidence.takeIf { it > 0f } ?: 0.8f)
         }
         return out
@@ -38,15 +42,19 @@ class Pipeline(private val repo: Repository) {
 
     @Volatile var lastTexts: List<String> = emptyList()
 
-    suspend fun process(accountId: Long, sessionId: Long, bmp: Bitmap, hash: Long): IngestResult {
+    /** Retorna null se o texto da tela é idêntico ao da anterior (nada novo a gravar). */
+    suspend fun process(accountId: Long, sessionId: Long, bmp: Bitmap, hash: Long): IngestResult? {
         val lines = ocr(bmp)
+        val sig = lines.joinToString("|") { Norm.key(it.text) }
+        if (sig == lastSig) return null
+        lastSig = sig
         lastTexts = lines.map { it.text }.take(60)
         com.saintseiya.coach.CoachApp.instance.prefs.lastSample = lastTexts.joinToString("\n").take(4000)
         val analysis = ScreenAnalyzer.analyze(lines, bmp.width, bmp.height)
         val names = ScreenAnalyzer.allNameCandidates(lines)
         val res = repo.ingest(accountId, sessionId, analysis, names, hash, System.currentTimeMillis())
         val app = com.saintseiya.coach.CoachApp.instance
-        if (app.prefs.diagLog) DiagLog.append(app, analysis.kind.name, analysis.kindScore, "${bmp.width}x${bmp.height}", lines.map { it.text },
+        if (app.prefs.diagLog) DiagLog.append(app, sig, analysis.kind.name, analysis.kindScore, "${bmp.width}x${bmp.height}", lines.map { it.text },
             "cavaleiros lidos ${analysis.knights.count { it.level != null }} (novos ${res.knightsNew}, atualizados ${res.knightsUpdated})")
         return res
     }

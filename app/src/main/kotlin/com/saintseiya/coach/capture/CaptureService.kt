@@ -129,7 +129,7 @@ class CaptureService : Service() {
             startActivity(Intent(this, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT))
         })
         b.show(); bubble = b
-        scope.launch(Dispatchers.Main) { CaptureState.live.collect { b.update("● ${it.framesProcessed} · ${it.lastKind ?: "…"}") } }
+        scope.launch(Dispatchers.Main) { CaptureState.live.collect { b.update("● ${it.framesProcessed}") } }
     }
 
     private fun startLoop() {
@@ -158,7 +158,7 @@ class CaptureService : Service() {
                     if (prev != null && Hash.distance(prev, h) < app.prefs.changeThreshold) continue // tela não mudou
                     lastHash = h
                     CaptureState.update { it.copy(framesChanged = it.framesChanged + 1) }
-                    val res = pipeline.process(accountId, sessionId, bmp, h)
+                    val res = pipeline.process(accountId, sessionId, bmp, h) ?: continue
                     CaptureState.update {
                         it.copy(framesProcessed = it.framesProcessed + 1, knightsNew = it.knightsNew + res.knightsNew,
                             knightsUpdated = it.knightsUpdated + res.knightsUpdated, lastKind = res.kind.label,

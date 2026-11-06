@@ -15,6 +15,7 @@ enum class ScreenKind(val ownData: Boolean, val label: String) {
     BATTLE(false, "Batalha"),
     BATTLE_RESULT(false, "Resultado de batalha"),
     EVENTS(false, "Eventos"),
+    LOADING(false, "Login / atualização"),
     UNKNOWN(false, "Não reconhecida"),
 }
 

@@ -115,6 +115,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                         bmp = decode(u)
                         if (bmp == null) { st = st.copy(done = st.done + 1, error = "Não foi possível abrir uma imagem."); _import.value = st; continue }
                         val r = pipe.process(acc, sid, bmp, pipe.hash(bmp))
+                        if (r == null) { st = st.copy(done = st.done + 1); _import.value = st; continue }
                         st = st.copy(done = st.done + 1, readable = st.readable + if (r.readable) 1 else 0, newK = st.newK + r.knightsNew, updK = st.updK + r.knightsUpdated)
                     } catch (e: CancellationException) { throw e
                     } catch (e: Exception) { st = st.copy(done = st.done + 1, error = "Erro: ${e.message}"); coach.prefs.lastError = "Importação: ${e.message}" }

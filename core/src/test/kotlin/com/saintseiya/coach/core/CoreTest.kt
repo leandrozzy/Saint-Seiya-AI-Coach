@@ -169,3 +169,10 @@ class FallbackTest {
         assertEquals(60, a.knights.single { it.level != null }.level); assertEquals("Seiya", a.knights.single { it.level != null }.rawName)
     }
 }
+
+class LoadingTest {
+    @Test fun loginScreenRecognized() {
+        assertEquals(ScreenKind.LOADING, ScreenClassifier.classify(listOf(line("Iniciar Jogo", 0, 0))).first)
+        assertEquals(ScreenKind.LOADING, ScreenClassifier.classify(listOf(line("Repair Client", 0, 0), line("Verificando arquivos de recurso", 0, 40))).first)
+    }
+}
