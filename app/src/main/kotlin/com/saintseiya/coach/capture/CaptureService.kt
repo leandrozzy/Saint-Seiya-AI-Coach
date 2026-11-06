@@ -37,6 +37,7 @@ class CaptureService : Service() {
     private var capW = 0
     private var capH = 0
     private var capDpi = 0
+    private var bubble: Bubble? = null
     private var ending = false
     private var endReason = "USER"
     private val app get() = CoachApp.instance
@@ -59,6 +60,7 @@ class CaptureService : Service() {
                 CaptureState.setReport(null)
                 CaptureState.update { LiveState(running = true, sessionId = sessionId, startedAt = System.currentTimeMillis(), lastMessage = "Capturando. Abra o jogo e navegue.") }
                 withContext(Dispatchers.Main) { startProjection(code, data) }
+                withContext(Dispatchers.Main) { showBubble() }
                 startLoop()
             } catch (e: Exception) { fail("Falha ao iniciar captura: ${e.message}") }
         }
@@ -98,12 +100,12 @@ class CaptureService : Service() {
         CaptureState.update { it.copy(captureSize = "${w}x$h") }
     }
 
-    /** Tamanho REAL atual da tela (muda ao girar para paisagem). Limita o lado maior a 1600 px. */
+    /** Tamanho REAL atual da tela (muda ao girar para paisagem). Limita o lado maior a 1920 px. */
     private fun currentDims(): Triple<Int, Int, Int> {
         val dm = android.util.DisplayMetrics()
         val d = getSystemService(DisplayManager::class.java).getDisplay(android.view.Display.DEFAULT_DISPLAY)
         @Suppress("DEPRECATION") d.getRealMetrics(dm)
-        val scale = (1600f / maxOf(dm.widthPixels, dm.heightPixels)).coerceAtMost(1f)
+        val scale = (1920f / maxOf(dm.widthPixels, dm.heightPixels)).coerceAtMost(1f)
         return Triple((dm.widthPixels * scale).toInt().coerceAtLeast(320), (dm.heightPixels * scale).toInt().coerceAtLeast(320), dm.densityDpi)
     }
 
@@ -119,6 +121,15 @@ class CaptureService : Service() {
         capW = w; capH = h; capDpi = dpi
         runCatching { old?.close() }
         CaptureState.update { it.copy(captureSize = "${w}x$h") }
+    }
+
+    private fun showBubble() {
+        if (!app.prefs.bubble || !Bubble.canShow(this)) return
+        val b = Bubble(this, onStop = { finish("USER") }, onOpen = {
+            startActivity(Intent(this, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT))
+        })
+        b.show(); bubble = b
+        scope.launch(Dispatchers.Main) { CaptureState.live.collect { b.update("● ${it.framesProcessed} · ${it.lastKind ?: "…"}") } }
     }
 
     private fun startLoop() {
@@ -186,6 +197,7 @@ class CaptureService : Service() {
         if (ending) return
         ending = true; endReason = reason
         loop?.cancel()
+        runCatching { bubble?.hide() }
         runCatching { display?.release() }; runCatching { reader?.close() }; runCatching { projection?.stop() }
         val sid = sessionId
         runBlocking(Dispatchers.IO) {

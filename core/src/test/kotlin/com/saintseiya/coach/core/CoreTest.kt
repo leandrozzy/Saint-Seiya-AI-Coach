@@ -156,3 +156,16 @@ class InlineLevelTest {
     }
     @Test fun levelTokenAnywhere() { assertEquals(80, ScreenClassifier.levelOf("Lv.80/100")); assertNull(ScreenClassifier.levelOf("Level up")) }
 }
+
+class FallbackTest {
+    @Test fun unknownScreenWithPairsBecomesRoster() {
+        val lines = listOf(line("Seiya", 100, 300), line("Lv.45", 100, 340), line("Shiryu", 600, 300), line("Lv.40", 600, 340))
+        val a = ScreenAnalyzer.analyze(lines, 2400, 1080)
+        assertEquals(ScreenKind.KNIGHT_ROSTER, a.kind); assertEquals(2, a.knights.count { it.level != null })
+    }
+    @Test fun detailPicksLargestNameFarFromLevel() {
+        val lines = listOf(TextLine("Seiya", 100, 40, 500, 120), TextLine("Equipar", 100, 600, 300, 630), TextLine("Lv.60", 900, 400, 1000, 430), TextLine("Habilidades", 100, 700, 400, 730), TextLine("Atributos", 100, 760, 400, 790))
+        val a = ScreenAnalyzer.analyze(lines, 2400, 1080)
+        assertEquals(60, a.knights.single { it.level != null }.level); assertEquals("Seiya", a.knights.single { it.level != null }.rawName)
+    }
+}

@@ -8,7 +8,7 @@ object ScreenAnalyzer {
         "cavaleiros", "caballeros", "knights", "saints", "todos", "all", "filtrar", "filter", "ordenar", "sort",
         "nivel", "level", "poder", "power", "habilidades", "skills", "equipar", "equip", "voltar", "back", "auto",
         "evoluir", "evolve", "confirmar", "confirm", "cancelar", "cancel", "formacao", "formation", "equipe", "team",
-        "inventario", "inventory", "vitoria", "victory", "derrota", "defeat", "loja", "shop", "evento", "event",
+        "parar", "coach", "abrir", "iniciar", "encerrar", "inventario", "inventory", "vitoria", "victory", "derrota", "defeat", "loja", "shop", "evento", "event",
     )
     private val nameRegex = Regex("^[\\p{L}][\\p{L}'’\\- ]{2,27}$")
     private val qtyRegex = Regex("^[x×]\\s?(\\d[\\d.,]*[kKmMbB]?)$")
@@ -23,7 +23,12 @@ object ScreenAnalyzer {
     }
 
     fun analyze(lines: List<TextLine>, imgW: Int, imgH: Int): ScreenAnalysis {
-        val (kind, score) = ScreenClassifier.classify(lines)
+        var (kind, score) = ScreenClassifier.classify(lines)
+        // Rede de segurança: tela sem palavra-chave reconhecida mas com 2+ pares nome+nível => provável tela de coleção.
+        // (Só quando NENHUM tipo foi reconhecido; telas de adversário/banner/PvP seguem a classificação.)
+        if (kind == ScreenKind.UNKNOWN && pairNamesWithLevels(lines, imgW, imgH).count { it.level != null } >= 2) {
+            kind = ScreenKind.KNIGHT_ROSTER; score = 1.0
+        }
         val knights = if (kind.ownData) pairNamesWithLevels(lines, imgW, imgH) else emptyList()
         val resources = if (kind == ScreenKind.INVENTORY || kind == ScreenKind.HOME || kind == ScreenKind.SUMMON_BANNER) readResources(lines) else emptyList()
         val outcome = if (kind == ScreenKind.BATTLE_RESULT) {
@@ -62,6 +67,14 @@ object ScreenAnalyzer {
             used += best.first
             val conf = (0.9 - best.second * 2).coerceIn(0.4, 0.9) * minOf(1f, (best.first.confidence + lv.confidence) / 2f).toDouble().coerceAtLeast(0.5)
             out += KnightReading(best.first.text.trim(), level, conf)
+        }
+        // 2ª passada (fichas): o nome costuma ser o texto MAIOR da tela, longe do nível. Confiança menor.
+        for (lv in levels.filter { it !in used }) {
+            val level = ScreenClassifier.levelOf(lv.text)!!
+            val best = names.filter { it !in used && hypot(it.cx - lv.cx, it.cy - lv.cy) / diag < 0.35 }
+                .maxByOrNull { it.height } ?: continue
+            used += best
+            out += KnightReading(best.text.trim(), level, 0.55)
         }
         // nomes sem nível: leitura sem nível (NÃO conta como posse)
         for (n in names) if (n !in used) out += KnightReading(n.text.trim(), null, 0.4)

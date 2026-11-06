@@ -57,6 +57,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
     init {
+        if (System.currentTimeMillis() - coach.prefs.lastUpdateCheck > 6L * 3600_000) checkUpdate()
         // registra recomendações exibidas (máx. 1x/24h por id) para a aba Aprendizado
         viewModelScope.launch {
             advice.collect { list ->

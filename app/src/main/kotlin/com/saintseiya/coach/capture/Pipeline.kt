@@ -44,6 +44,10 @@ class Pipeline(private val repo: Repository) {
         com.saintseiya.coach.CoachApp.instance.prefs.lastSample = lastTexts.joinToString("\n").take(4000)
         val analysis = ScreenAnalyzer.analyze(lines, bmp.width, bmp.height)
         val names = ScreenAnalyzer.allNameCandidates(lines)
-        return repo.ingest(accountId, sessionId, analysis, names, hash, System.currentTimeMillis())
+        val res = repo.ingest(accountId, sessionId, analysis, names, hash, System.currentTimeMillis())
+        val app = com.saintseiya.coach.CoachApp.instance
+        if (app.prefs.diagLog) DiagLog.append(app, analysis.kind.name, analysis.kindScore, "${bmp.width}x${bmp.height}", lines.map { it.text },
+            "cavaleiros lidos ${analysis.knights.count { it.level != null }} (novos ${res.knightsNew}, atualizados ${res.knightsUpdated})")
+        return res
     }
 }

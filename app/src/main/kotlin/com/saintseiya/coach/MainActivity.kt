@@ -21,10 +21,17 @@ import com.saintseiya.coach.ui.*
 class MainActivity : ComponentActivity() {
     private val vm: AppViewModel by viewModels()
     private var pendingStart = false
+    private var openGameAfter = false
 
     private val projectionLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { r ->
         val data = r.data
-        if (r.resultCode == RESULT_OK && data != null) CaptureService.start(this, r.resultCode, data)
+        if (r.resultCode == RESULT_OK && data != null) {
+            CaptureService.start(this, r.resultCode, data)
+            val pkg = CoachApp.instance.prefs.gamePackage
+            if (openGameAfter && pkg != null) {
+                window.decorView.postDelayed({ if (!com.saintseiya.coach.capture.GameLauncher.launch(this, pkg)) CoachApp.instance.prefs.lastError = "Não consegui abrir o jogo ($pkg)." }, 900)
+            }
+        }
         else CoachApp.instance.prefs.lastError = "Autorização de captura negada ou cancelada."
     }
     private val notifLauncher = registerForActivityResult(ActivityResultContracts.RequestPermission()) { _ ->
@@ -50,7 +57,9 @@ class MainActivity : ComponentActivity() {
                 val pick = rememberLauncherForActivityResult(ActivityResultContracts.PickMultipleVisualMedia(30)) { uris -> vm.importImages(uris) }
                 val actions = remember {
                     Actions(
-                        onStart = { startCapture() },
+                        onStart = { openGameAfter = false; startCapture() },
+                        onStartAndPlay = { openGameAfter = true; startCapture() },
+                        onOpenGame = { CoachApp.instance.prefs.gamePackage?.let { com.saintseiya.coach.capture.GameLauncher.launch(this, it) } },
                         onStop = { CaptureService.stop(this) },
                         onPickImages = { pick.launch(androidx.activity.result.PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
                     )

@@ -75,7 +75,9 @@ class Repository(val db: CoachDb) {
                 }
             }
 
-            analysis.knights.forEach { applyReading(it, analysis.kind) }
+            // Leituras sem nível só interessam se o nome já é conhecido (evita lixo como rótulos de UI virarem "cavaleiros").
+            analysis.knights.filter { it.level != null || catalogAll.any { c -> Norm.similarity(c.name, it.rawName) >= 0.9 } }
+                .forEach { applyReading(it, analysis.kind) }
 
             // Telas não-próprias: só reconhece nomes JÁ conhecidos (catálogo) e marca "visto em outro lugar".
             // Isso NUNCA cria posse.

@@ -170,6 +170,24 @@ private fun Diagnostico(vm: AppViewModel) {
                 if (sample.isNullOrBlank()) Small("Nenhum texto lido ainda. Rode uma leitura ou importe um print.") else { Small("Isto é exatamente o que o app enxergou (use para calibrar):"); Body(sample.take(1500)) }
             }
         }
+        item {
+            val clip = androidx.compose.ui.platform.LocalClipboardManager.current
+            var logOn by remember { mutableStateOf(prefs.diagLog) }
+            var size by remember { mutableIntStateOf(com.saintseiya.coach.capture.DiagLog.read(ctx).length) }
+            SCard {
+                H("Log de calibração (texto do OCR)")
+                Body("Guarda localmente, tela a tela, o texto que o OCR leu e o que foi aplicado — sem imagens. Serve para ajustar o reconhecimento ao jogo real. Atual: ${size / 1000} KB.")
+                Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) { Text("Gravar log", Modifier.weight(1f), color = C.text); Switch(logOn, { logOn = it; prefs.diagLog = it }) }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Button({ clip.setText(androidx.compose.ui.text.AnnotatedString(com.saintseiya.coach.capture.DiagLog.read(ctx).takeLast(60000))) }, enabled = size > 0) { Text("Copiar") }
+                    OutlinedButton({
+                        val t = com.saintseiya.coach.capture.DiagLog.read(ctx).takeLast(60000)
+                        ctx.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, t), "Compartilhar diagnóstico").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                    }, enabled = size > 0) { Text("Compartilhar") }
+                    TextButton({ com.saintseiya.coach.capture.DiagLog.clear(ctx); size = 0 }) { Text("Limpar") }
+                }
+            }
+        }
         items(features) { f -> SCard { Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { Text(f.name, Modifier.weight(1f), color = C.text, fontWeight = FontWeight.SemiBold); StatusChip(f.status) }; Small(f.note) } }
     }
 }

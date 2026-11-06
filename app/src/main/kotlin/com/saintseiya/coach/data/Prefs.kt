@@ -27,6 +27,16 @@ class Prefs(ctx: Context) {
     var lastError: String?
         get() = sp.getString("lastError", null)
         set(v) { sp.edit().putString("lastError", v).apply() }
+    var gamePackage: String?
+        get() = sp.getString("gamePkg", null)
+        set(v) { sp.edit().putString("gamePkg", v).apply() }
+    var bubble: Boolean
+        get() = sp.getBoolean("bubble", true)
+        set(v) { sp.edit().putBoolean("bubble", v).apply() }
+    /** Guarda localmente o texto do OCR (nunca imagens) para calibrar o reconhecimento. */
+    var diagLog: Boolean
+        get() = sp.getBoolean("diagLog", true)
+        set(v) { sp.edit().putBoolean("diagLog", v).apply() }
     /** Texto OCR da última tela analisada (para diagnóstico/calibração). */
     var lastSample: String?
         get() = sp.getString("lastSample", null)

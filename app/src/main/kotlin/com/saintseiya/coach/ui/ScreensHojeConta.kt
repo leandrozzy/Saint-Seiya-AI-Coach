@@ -14,6 +14,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.saintseiya.coach.capture.CaptureState
+import com.saintseiya.coach.capture.GameLauncher
+import com.saintseiya.coach.capture.Bubble
+import com.saintseiya.coach.CoachApp
+import androidx.compose.ui.platform.LocalContext
+import android.content.Intent
+import android.net.Uri
+import android.provider.Settings
 import com.saintseiya.coach.core.*
 import com.saintseiya.coach.data.KnightEntity
 
@@ -49,10 +56,17 @@ fun HojeScreen(vm: AppViewModel, act: Actions, nav: Nav) {
     val candidates = knights.count { it.status == "CANDIDATE" }
     var showLast by remember { mutableStateOf(false) }
     var showHow by remember { mutableStateOf(false) }
+    val ctx = LocalContext.current
+    val prefs = CoachApp.instance.prefs
+    var gamePkg by remember { mutableStateOf(prefs.gamePackage) }
+    var picker by remember { mutableStateOf(false) }
+    var bubbleOn by remember { mutableStateOf(prefs.bubble) }
+    val upd by vm.update.collectAsState()
+    if (picker) GamePicker(ctx, onPick = { prefs.gamePackage = it; gamePkg = it; picker = false }, onDismiss = { picker = false })
     if (showHow) AlertDialog(onDismissRequest = { showHow = false },
         title = { Text("Antes de começar") },
         text = { Text("Na janela do Android que vai abrir, escolha “Tela inteira” (ou o app do jogo), e toque em “Iniciar agora”.\n\nDepois abra o jogo e navegue devagar: deixe cada tela (lista de cavaleiros, ficha, formação) parada por 2–3 segundos. A leitura ao vivo aparece aqui em Hoje: se “quadros recebidos” subir, a captura está funcionando.") },
-        confirmButton = { TextButton({ showHow = false; act.onStart() }) { Text("Entendi, iniciar") } },
+        confirmButton = { TextButton({ showHow = false; if (gamePkg != null) act.onStartAndPlay() else act.onStart() }) { Text(if (gamePkg != null) "Iniciar e abrir o jogo" else "Entendi, iniciar") } },
         dismissButton = { TextButton({ showHow = false }) { Text("Cancelar") } })
 
     report?.let { r ->
@@ -68,6 +82,9 @@ fun HojeScreen(vm: AppViewModel, act: Actions, nav: Nav) {
     }
 
     LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp), contentPadding = PaddingValues(vertical = 12.dp)) {
+        (upd.result as? com.saintseiya.coach.update.UpdateCheck.Available)?.let { a ->
+            item { SCard(accent = C.celeste, modifier = Modifier.clickable { nav.go(7, 2) }) { H("Nova versão disponível"); Body("${a.info.name.ifBlank { a.info.tag }} — toque para atualizar (seus dados são mantidos).") } }
+        }
         item {
             SCard(accent = if (live.running) C.ok else null) {
                 if (live.running) {
@@ -80,13 +97,17 @@ fun HojeScreen(vm: AppViewModel, act: Actions, nav: Nav) {
                     if (live.lastFrameBlack) Small("⚠ O quadro está preto: o jogo pode bloquear captura de tela ou foi escolhido o app errado.")
                     if (live.framesAcquired > 3 && live.framesProcessed > 0 && live.lastLineCount == 0) Small("⚠ Quadros chegam mas o OCR não achou texto. Veja Configurações → Diagnóstico.")
                     live.lastMessage?.let { Small(it) }
-                    Button(onClick = act.onStop, colors = ButtonDefaults.buttonColors(containerColor = C.bad), modifier = Modifier.heightIn(min = 48.dp)) { Text("Encerrar sessão") }
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Button(onClick = act.onStop, colors = ButtonDefaults.buttonColors(containerColor = C.bad), modifier = Modifier.heightIn(min = 48.dp)) { Text("Encerrar sessão") }
+                        if (gamePkg != null) OutlinedButton(onClick = act.onOpenGame, modifier = Modifier.heightIn(min = 48.dp)) { Text("Abrir jogo") }
+                    }
                 } else {
                     H(if (confirmed == 0) "Vamos começar" else "Pronto para ler")
                     Body(if (confirmed == 0) "Toque em Iniciar leitura, autorize a captura, abra o jogo e navegue pela lista de cavaleiros. O Coach lê só o que aparece na tela, no próprio aparelho."
                     else "Inicie uma leitura e navegue pelo jogo; o que não for visto é mantido como está.")
                     live.lastMessage?.let { Small(it) }
-                    FlowRowButtons(act.copy(onStart = { showHow = true }), onLast = { showLast = true }, hasLast = sessions.isNotEmpty(), onPend = { nav.go(1, 5) })
+                    FlowRowButtons(act, gamePkg?.let { GameLauncher.label(ctx, it) ?: it }, onStart = { showHow = true }, onPickGame = { picker = true },
+                        onLast = { showLast = true }, hasLast = sessions.isNotEmpty(), onPend = { nav.go(1, 5) })
                 }
             }
         }
@@ -113,6 +134,18 @@ fun HojeScreen(vm: AppViewModel, act: Actions, nav: Nav) {
                 Box(Modifier.weight(1f)) { SCard { Small("Pendências"); Text("${issues.size + candidates}", color = if (issues.size + candidates > 0) C.warn else C.ok, style = MaterialTheme.typography.headlineMedium); Small("leituras a revisar") } }
             }
         }
+        item {
+            SCard {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) { Text("Bolha flutuante durante a leitura", color = C.text); Small("Contador e botão Parar sobre o jogo (arrastável). Não toca no jogo.") }
+                    Switch(bubbleOn, { bubbleOn = it; prefs.bubble = it })
+                }
+                if (bubbleOn && !Bubble.canShow(ctx)) {
+                    Small("Falta a permissão “Sobrepor a outros apps”.")
+                    OutlinedButton({ ctx.startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:${ctx.packageName}")).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }) { Text("Permitir") }
+                }
+            }
+        }
         item { H("Seu treinador recomenda") }
         if (advice.isEmpty()) item { Empty("Sem recomendações agora", "Quando houver dados suficientes, as prioridades aparecem aqui.") }
         items(advice.take(4), key = { it.id }) { AdviceCard(it) }
@@ -122,15 +155,44 @@ fun HojeScreen(vm: AppViewModel, act: Actions, nav: Nav) {
 }
 
 @Composable
-private fun FlowRowButtons(act: Actions, onLast: () -> Unit, hasLast: Boolean, onPend: () -> Unit) {
+private fun FlowRowButtons(act: Actions, gameLabel: String?, onStart: () -> Unit, onPickGame: () -> Unit, onLast: () -> Unit, hasLast: Boolean, onPend: () -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Button(onClick = act.onStart, modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)) { Icon(Icons.Filled.PlayArrow, null); Spacer(Modifier.width(8.dp)); Text("Iniciar leitura") }
+        Button(onClick = onStart, modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)) {
+            Icon(Icons.Filled.PlayArrow, null); Spacer(Modifier.width(8.dp)); Text(if (gameLabel != null) "Iniciar leitura e abrir $gameLabel" else "Iniciar leitura")
+        }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedButton(onClick = act.onPickImages, modifier = Modifier.weight(1f).heightIn(min = 48.dp)) { Text("Importar prints") }
-            OutlinedButton(onClick = onLast, enabled = hasLast, modifier = Modifier.weight(1f).heightIn(min = 48.dp)) { Text("Última sessão") }
-            OutlinedButton(onClick = onPend, modifier = Modifier.weight(1f).heightIn(min = 48.dp)) { Text("Pendências") }
+            if (gameLabel != null) OutlinedButton(onClick = act.onOpenGame, modifier = Modifier.weight(1f).heightIn(min = 48.dp)) { Text("Abrir jogo") }
+            OutlinedButton(onClick = onPickGame, modifier = Modifier.weight(1f).heightIn(min = 48.dp)) { Text(if (gameLabel == null) "Escolher o jogo" else "Trocar jogo", maxLines = 1) }
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedButton(onClick = act.onPickImages, modifier = Modifier.weight(1f).heightIn(min = 48.dp)) { Text("Importar prints", maxLines = 1) }
+            OutlinedButton(onClick = onLast, enabled = hasLast, modifier = Modifier.weight(1f).heightIn(min = 48.dp)) { Text("Última sessão", maxLines = 1) }
+            OutlinedButton(onClick = onPend, modifier = Modifier.weight(1f).heightIn(min = 48.dp)) { Text("Pendências", maxLines = 1) }
         }
     }
+}
+
+@Composable
+private fun GamePicker(ctx: android.content.Context, onPick: (String) -> Unit, onDismiss: () -> Unit) {
+    val all = remember { GameLauncher.launchable(ctx) }
+    val guess = remember { GameLauncher.guess(all) }
+    var q by remember { mutableStateOf("") }
+    val list = (if (q.isBlank()) guess + all.filter { it !in guess } else all.filter { Norm.fold(it.label).contains(Norm.fold(q)) })
+    AlertDialog(onDismissRequest = onDismiss, confirmButton = { TextButton(onDismiss) { Text("Fechar") } },
+        title = { Text("Qual é o jogo?") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                if (guess.isNotEmpty() && q.isBlank()) Small("Sugestões no topo (nome parecido com Saint Seiya).")
+                OutlinedTextField(q, { q = it }, label = { Text("Pesquisar app") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                LazyColumn(Modifier.heightIn(max = 320.dp)) {
+                    items(list, key = { it.pkg }) { a ->
+                        Column(Modifier.fillMaxWidth().clickable { onPick(a.pkg) }.padding(vertical = 10.dp)) {
+                            Text(a.label, color = if (a in guess) C.gold else C.text, fontWeight = FontWeight.SemiBold); Small(a.pkg)
+                        }
+                    }
+                }
+            }
+        })
 }
 
 @Composable
