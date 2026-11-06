@@ -34,8 +34,13 @@ object ScreenAnalyzer {
         val resources = ArrayList<ResourceReading>()
         val panelLevel = Stage.panelLevel(lines, imgW, imgH)
         val stats = Stage.basicStats(lines, imgW, imgH)
-        // tela sem palavra-chave mas com faixa de nome + painel de nível => ficha de cavaleiro
-        if (kind == ScreenKind.UNKNOWN && stage?.name != null && panelLevel != null && stats.size >= 3) { kind = ScreenKind.KNIGHT_DETAIL; score = 2.0 }
+        // A faixa vertical do nome + estrelas é o sinal visual mais confiável das telas de cavaleiro: não depende de palavras-chave.
+        val stageName = stage?.name?.let { Stage.cleanName(it) }
+        if (kind == ScreenKind.UNKNOWN && stageName != null && stageName.length >= 6 && stage.stars != null) {
+            val f = lines.map { Norm.fold(it.text) }
+            val grid = ScreenClassifier.levelCount(lines) >= 3 || f.any { it.contains("possu") || it.contains("gerenciar") || it.contains("desbloquear") }
+            kind = if (grid) ScreenKind.KNIGHT_ROSTER else ScreenKind.KNIGHT_DETAIL; score = 2.0
+        }
 
         val knights = ArrayList<KnightReading>()
         if (kind == ScreenKind.KNIGHT_ROSTER || kind == ScreenKind.KNIGHT_DETAIL) {

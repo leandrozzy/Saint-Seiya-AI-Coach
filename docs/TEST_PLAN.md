@@ -6,3 +6,11 @@
 4. Iniciar e encerrar sem navegar: "Nenhum dado capturado". 5. Revogar pela barra do Android: sessão encerrada com motivo.
 6. Banner/adversário não gera "possuído". 7. Paisagem e retrato. 8. Atualização in-app com 2 builds.
 Pendente: testes instrumentados Room/migração; medição de bateria.
+
+## Roteiro único de validação (build 15)
+1. Hoje › Iniciar leitura e abrir o jogo (Tela inteira).
+2. Cavaleiros › Gerenciar: deixe ~2 s. Esperado: Minha Conta mostra "Lidos: 0 de 113" (o total vem do jogo).
+3. Toque em um cavaleiro › Aprimorar; toque na seta › ao lado do personagem ~10 vezes (1 s cada). Esperado: cavaleiros confirmados com nome, nível, ★, raridade e atributos.
+4. Inventário: toque em 5 itens. Esperado: Recursos mostra item + QTDE.
+5. Faça uma batalha até a tela WIN. Esperado: Batalhas › Histórico registra vitória.
+6. Configurações › Diagnóstico › Log de calibração › Copiar parte 1/N e cole no chat se algo falhar.

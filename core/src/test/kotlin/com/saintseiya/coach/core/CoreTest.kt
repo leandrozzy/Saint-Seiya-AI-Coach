@@ -165,6 +165,18 @@ class StageTest {
         assertEquals("Guerreiro Marina", k.rawName); assertEquals(11, k.level); assertEquals(2, k.stars); assertEquals("C", k.rarity); assertTrue(k.strong)
         assertEquals(mapOf("pv" to 1458, "atqC" to 0, "defC" to 65, "atqF" to 231, "defF" to 65, "vel" to 22), k.stats)
     }
+    @Test fun statsWhenLabelAndValueAreMerged() {
+        val merged = listOf(at("Aprimorar", 0.14, 0.035), at("Atributos Básicos", 0.595, 0.363, 260),
+            at("PV 1458", 0.60, 0.43, 200), at("ATQ F. 231+14", 0.80, 0.43, 260), at("ATQ C. 0+14", 0.60, 0.488, 220), at("DEF F. 65", 0.78, 0.488, 200),
+            at("DEF C. 65", 0.60, 0.548, 200), at("Veloci... 22", 0.80, 0.548, 220), at("Atributos de Luta", 0.595, 0.632, 280), at("Nível 11", 0.72, 0.223, 200))
+        val k = ScreenAnalyzer.analyze(merged, W, H, StageStrip("Guerreiro Marina", "C", 2, 0.8)).knights.single()
+        assertEquals(mapOf("pv" to 1458, "atqC" to 0, "defC" to 65, "atqF" to 231, "defF" to 65, "vel" to 22), k.stats)
+    }
+    @Test fun statsWhenWholeRowIsOneLine() {
+        val rows = listOf(at("Atributos Básicos", 0.595, 0.363, 260), at("PV 1458 ATQ F. 231+14", 0.70, 0.43, 600), at("ATQ C. 0+14 DEF F. 65", 0.70, 0.488, 600),
+            at("DEF C. 65 Veloci... 22", 0.70, 0.548, 600), at("Atributos de Luta", 0.595, 0.632, 280))
+        assertEquals(6, Stage.basicStats(rows, W, H).size)
+    }
     @Test fun levelSplitAcrossLines() {
         val lines = aprimorar("Nível").filter { it.text != "Nível" } + listOf(at("Nível", 0.70, 0.223, 90), at("12", 0.76, 0.225, 50)) 
         assertEquals(12, Stage.panelLevel(lines, W, H))
@@ -204,5 +216,18 @@ class StageTest {
         val ks = (1..3).map { KnightState("k$it", "K$it", 10, null, KnightStatus.CONFIRMED, 0.8, 1, 0, 0) }
         val adv = Recommender.advise(ks, 0, setOf(ScreenKind.KNIGHT_ROSTER), 0, totalOwned = 113)
         assertTrue(adv.any { it.id == "coverage-knights" && it.title.contains("110") })
+    }
+}
+
+class VisualAnchorTest {
+    @Test fun stageStripAloneMakesKnightScreen() {
+        val a = ScreenAnalyzer.analyze(listOf(at("Sétimo", 0.3, 0.9), at("Espada Sagrada", 0.8, 0.9)), W, H, StageStrip("Shura de Capricórnio", "S", 3, 0.8))
+        assertEquals(ScreenKind.KNIGHT_DETAIL, a.kind); assertNull(a.knights.single().level)
+    }
+    @Test fun battleHudLeftButtons() {
+        assertEquals(ScreenKind.BATTLE, ScreenClassifier.classify(listOf(at("Recuar", 0.01, 0.1), at("Pausar", 0.01, 0.2), at("Auto", 0.01, 0.3))).first)
+    }
+    @Test fun ocrTypoStillMatches() {
+        assertEquals(ScreenKind.TEAM_FORMATION, ScreenClassifier.classify(listOf(at("Frmação", 0.9, 0.3), at("Salvar", 0.9, 0.8))).first)
     }
 }

@@ -6,7 +6,7 @@ package com.saintseiya.coach.core
  * por isso toda observação guarda o tipo inferido e o score (visível em Diagnóstico).
  */
 object ScreenClassifier {
-    private val levelRegex = Regex("(?:^|[^\\p{L}])(?:lv|lvl|nv|nivel|nível|level)\\.?\\s*(\\d{1,3})(?!\\d)", RegexOption.IGNORE_CASE)
+    private val levelRegex = Regex("(?:^|[^\\p{L}])(?:lv|iv|1v|lvl|nv|nivel|nível|level)\\.?\\s*(\\d{1,3})(?!\\d)", RegexOption.IGNORE_CASE)
 
     val keywords: Map<ScreenKind, List<String>> = mapOf(
         // Gerenciar (grade de cartas + "Total possuído") — medido no vídeo do jogo (UI em PT-BR)
@@ -20,7 +20,7 @@ object ScreenClassifier {
         ScreenKind.PVP_LOBBY to listOf("pvp", "arena de honra", "duelo galactico", "galactic duel", "ranking", "classificatoria", "jxj"),
         ScreenKind.PICK_BAN to listOf("pick", "ban", "banir", "banido", "proibir"),
         ScreenKind.ENEMY_PREVIEW to listOf("adversario", "oponente", "opponent", "enemy", "inimigo", "rival", "poder do oponente"),
-        ScreenKind.BATTLE to listOf("ataque basico", "passiva", "bloqueado", "rodada", "pular", "pausar", "turno", "ultimate", "skip"),
+        ScreenKind.BATTLE to listOf("recuar", "pausar", "denunciar", "ataque basico", "passiva", "bloqueado", "rodada", "onda", "turno", "ultimate"),
         ScreenKind.BATTLE_RESULT to listOf("win", "lose", "vitoria", "derrota", "victory", "defeat", "dados", "recompensas obtidas", "recompensas", "resultado"),
         ScreenKind.EVENTS to listOf("evento", "event", "missao", "quest", "mission", "diaria", "daily", "semanal", "weekly", "atividade", "gato da fortuna"),
         ScreenKind.LOADING to listOf("iniciar jogo", "start game", "repair client", "verificando arquivos", "checking resources", "carregando", "loading", "atualizando recursos", "baixando"),
@@ -36,12 +36,14 @@ object ScreenClassifier {
         if (lines.isEmpty()) return ScreenKind.UNKNOWN to 0.0
         val folded = lines.map { Norm.fold(it.text) }
         val scores = HashMap<ScreenKind, Double>()
+        val tokens = folded.flatMap { it.split(Regex("[^a-z]+")) }.filter { it.length >= 5 }.distinct()
         for ((kind, words) in keywords) {
             var s = 0.0
             for (w in words) {
                 // palavra isolada (evita "ban" em "banner")
                 val re = Regex("(^|[^a-z])" + Regex.escape(w) + "([^a-z]|$)")
                 if (folded.any { re.containsMatchIn(it) }) s += 1.0
+                else if (!w.contains(' ') && w.length >= 7 && tokens.any { Norm.similarity(it, w) >= 0.8 }) s += 1.0 // tolera erro de OCR ("Frmação")
             }
             scores[kind] = s
         }

@@ -48,7 +48,7 @@ class Pipeline(private val repo: Repository) {
         val lines = ocr(bmp)
         // tela de cavaleiro? (ou sem tipo mas com bastante texto) => lê a faixa vertical do nome
         val pre = ScreenClassifier.classify(lines).first
-        val stage = if (pre == ScreenKind.KNIGHT_ROSTER || pre == ScreenKind.KNIGHT_DETAIL || (pre == ScreenKind.UNKNOWN && lines.size >= 8))
+        val stage = if (pre == ScreenKind.KNIGHT_ROSTER || pre == ScreenKind.KNIGHT_DETAIL || (pre == ScreenKind.UNKNOWN && lines.size >= 3))
             try { stageReader.read(bmp) } catch (e: Exception) { null } else null
         val sig = lines.joinToString("|") { Norm.key(it.text) } + "#" + (stage?.name ?: "") + (stage?.stars ?: "")
         if (sig == lastSig) return null

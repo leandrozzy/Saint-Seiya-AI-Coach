@@ -48,26 +48,30 @@ object Stage {
         val top = lines.firstOrNull { it.cx > 0.5 * w && it.cy < 0.55 * h && hasAll(it, "atributos") && (Norm.fold(it.text).contains("sicos") || Norm.fold(it.text).contains("bas")) } ?: return emptyMap()
         val bottom = lines.filter { it.cx > 0.5 * w && it.cy > top.cy && hasAll(it, "atributos", "luta") }.minByOrNull { it.cy }
         val yMax = bottom?.cy ?: (top.cy + 0.30 * h)
-        val vals = lines.filter { it.cx > 0.5 * w && it.cy > top.cy + 0.02 * h && it.cy < yMax && firstInt(it.text) != null }
-        if (vals.isEmpty()) return emptyMap()
-        // agrupa em linhas por cy
-        val rows = ArrayList<MutableList<TextLine>>()
-        for (v in vals.sortedBy { it.cy }) {
-            val r = rows.firstOrNull { abs(it.first().cy - v.cy) < 0.03 * h }
+        // cada linha pode ter só o valor ("1458"), rótulo+valor ("ATQ C. 0+14") ou a linha inteira com 2 valores
+        val cand = lines.filter { it.cx > 0.5 * w && it.cy > top.cy + 0.02 * h && it.cy < yMax }
+            .map { it to numbersIn(it.text) }.filter { it.second.isNotEmpty() }
+        if (cand.isEmpty()) return emptyMap()
+        val rows = ArrayList<MutableList<Pair<TextLine, List<Int>>>>()
+        for (v in cand.sortedBy { it.first.cy }) {
+            val r = rows.firstOrNull { abs(it.first().first.cy - v.first.cy) < 0.03 * h }
             if (r != null) r += v else rows += mutableListOf(v)
         }
         if (rows.size != 3) return emptyMap() // layout inesperado: não chuta
         val keysL = listOf("pv", "atqC", "defC"); val keysR = listOf("atqF", "defF", "vel")
         val out = LinkedHashMap<String, Int>()
-        rows.sortedBy { it.first().cy }.forEachIndexed { i, r ->
-            r.sortedBy { it.cx }.let { cells ->
-                val split = 0.72 * w
-                cells.firstOrNull { it.cx < split }?.let { c -> firstInt(c.text)?.let { out[keysL[i]] = it } }
-                cells.lastOrNull { it.cx >= split }?.let { c -> firstInt(c.text)?.let { out[keysR[i]] = it } }
-            }
+        val split = 0.72 * w
+        rows.sortedBy { it.first().first.cy }.forEachIndexed { i, r ->
+            val tokens = r.sortedBy { it.first.cx }.flatMap { (l, ns) -> ns.map { l to it } }
+            if (tokens.size >= 2) { out[keysL[i]] = tokens.first().second; out[keysR[i]] = tokens.last().second }
+            else tokens.firstOrNull()?.let { (l, n) -> if (l.cx < split) out[keysL[i]] = n else out[keysR[i]] = n }
         }
         return out
     }
+
+    /** Valores numéricos de uma linha: "0+14" -> 0 ; "231+14" -> 231 ; "PV 1458" -> 1458. */
+    private fun numbersIn(t: String): List<Int> =
+        Regex("(?<![\\p{L}\\d])(\\d[\\d.,]*)(?:\\s*[+\\-~]\\s*\\d[\\d.,]*)?(?![\\p{L}\\d])").findAll(t).mapNotNull { Norm.parseNumber(it.groupValues[1])?.toInt() }.toList()
 
     private fun abs(d: Double) = if (d < 0) -d else d
 
