@@ -13,6 +13,7 @@ import kotlinx.coroutines.tasks.await
 class Pipeline(private val repo: Repository) {
     private val recognizer by lazy { TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS) }
 
+    private val stageReader by lazy { StageReader(recognizer) }
     private val selfOverlay = Regex("^[•●·■↗]")
     private var lastSig: String? = null
 
@@ -45,17 +46,21 @@ class Pipeline(private val repo: Repository) {
     /** Retorna null se o texto da tela é idêntico ao da anterior (nada novo a gravar). */
     suspend fun process(accountId: Long, sessionId: Long, bmp: Bitmap, hash: Long): IngestResult? {
         val lines = ocr(bmp)
-        val sig = lines.joinToString("|") { Norm.key(it.text) }
+        // tela de cavaleiro? (ou sem tipo mas com bastante texto) => lê a faixa vertical do nome
+        val pre = ScreenClassifier.classify(lines).first
+        val stage = if (pre == ScreenKind.KNIGHT_ROSTER || pre == ScreenKind.KNIGHT_DETAIL || (pre == ScreenKind.UNKNOWN && lines.size >= 8))
+            try { stageReader.read(bmp) } catch (e: Exception) { null } else null
+        val sig = lines.joinToString("|") { Norm.key(it.text) } + "#" + (stage?.name ?: "") + (stage?.stars ?: "")
         if (sig == lastSig) return null
         lastSig = sig
         lastTexts = lines.map { it.text }.take(60)
         com.saintseiya.coach.CoachApp.instance.prefs.lastSample = lastTexts.joinToString("\n").take(4000)
-        val analysis = ScreenAnalyzer.analyze(lines, bmp.width, bmp.height)
+        val analysis = ScreenAnalyzer.analyze(lines, bmp.width, bmp.height, stage)
         val names = ScreenAnalyzer.allNameCandidates(lines)
         val res = repo.ingest(accountId, sessionId, analysis, names, hash, System.currentTimeMillis())
         val app = com.saintseiya.coach.CoachApp.instance
         if (app.prefs.diagLog) DiagLog.append(app, sig, analysis.kind.name, analysis.kindScore, "${bmp.width}x${bmp.height}", lines.map { it.text },
-            "cavaleiros lidos ${analysis.knights.count { it.level != null }} (novos ${res.knightsNew}, atualizados ${res.knightsUpdated})")
+            "faixa: ${stage?.name ?: "-"} rar=${stage?.rarity ?: "-"} estrelas=${stage?.stars ?: "-"} | cavaleiros ${analysis.knights.map { "${it.rawName} nv${it.level ?: "?"} ${it.stats}" }} (novos ${res.knightsNew}, atualizados ${res.knightsUpdated})")
         return res
     }
 }

@@ -47,7 +47,7 @@ object Reconciler {
             existing.sightings + 1 else 1
         val status = when {
             base.status == KnightStatus.CONFIRMED -> KnightStatus.CONFIRMED
-            catalogKnown || sightings >= 2 -> KnightStatus.CONFIRMED
+            catalogKnown || sightings >= 2 || reading.strong -> KnightStatus.CONFIRMED
             else -> KnightStatus.CANDIDATE
         }
         if (status != base.status) changes += Change("status", base.status.name, status.name)
@@ -62,10 +62,18 @@ object Reconciler {
         } else if (level < base.level) {
             issues += IssueDraft("LEVEL_CONFLICT", "${base.displayName}: lido Lv.$level mas já havia Lv.${base.level}. Mantido o anterior; confirme.")
         }
+        val st = reading.stats
+        if (reading.stars != null && reading.stars != base.stars) changes += Change("stars", base.stars?.toString(), reading.stars.toString())
+        if (reading.rarity != null && reading.rarity != base.rarity) changes += Change("rarity", base.rarity, reading.rarity)
         val state = base.copy(
             level = newLevel, status = status, sightings = sightings, lastSeenAt = now,
             confidence = maxOf(base.confidence, reading.confidence),
             sourceObservationId = observationId ?: base.sourceObservationId,
+            // campos NÃO vistos nunca são apagados; vistos substituem o valor anterior
+            stars = reading.stars ?: base.stars,
+            rarity = reading.rarity ?: base.rarity,
+            pv = st["pv"] ?: base.pv, atqC = st["atqC"] ?: base.atqC, defC = st["defC"] ?: base.defC,
+            atqF = st["atqF"] ?: base.atqF, defF = st["defF"] ?: base.defF, vel = st["vel"] ?: base.vel,
         )
         return MergeResult(state, changes, issues)
     }

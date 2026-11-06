@@ -9,20 +9,22 @@ object ScreenClassifier {
     private val levelRegex = Regex("(?:^|[^\\p{L}])(?:lv|lvl|nv|nivel|nível|level)\\.?\\s*(\\d{1,3})(?!\\d)", RegexOption.IGNORE_CASE)
 
     val keywords: Map<ScreenKind, List<String>> = mapOf(
-        ScreenKind.KNIGHT_ROSTER to listOf("cavaleiros", "caballeros", "knights", "saints", "colecao", "collection", "coleccion", "ordenar", "sort", "filtrar", "filter"),
-        ScreenKind.KNIGHT_DETAIL to listOf("habilidades", "skills", "habilidad", "atributos", "attributes", "sentido", "sense", "armadura", "armor", "evoluir", "evolve", "ascender", "awaken"),
-        ScreenKind.TEAM_FORMATION to listOf("formacao", "formation", "formacion", "equipe", "team", "equipo", "lineup", "escalar", "deploy"),
-        ScreenKind.COSMOS to listOf("cosmo", "cosmos", "solar", "lunar", "estelar", "stellar", "lendario", "legendary"),
-        ScreenKind.INVENTORY to listOf("inventario", "inventory", "mochila", "backpack", "bag", "materiais", "materials", "itens", "items"),
-        ScreenKind.SUMMON_BANNER to listOf("invocacao", "summon", "invocacion", "banner", "recrutar", "recruit", "probabilidade", "rate up", "rate-up"),
-        ScreenKind.PVP_LOBBY to listOf("pvp", "arena", "duelo galactico", "galactic duel", "ranking", "ranked", "classificatoria"),
-        ScreenKind.PICK_BAN to listOf("pick", "ban", "banir", "banido", "escolher", "proibir"),
+        // Gerenciar (grade de cartas + "Total possuído") — medido no vídeo do jogo (UI em PT-BR)
+        ScreenKind.KNIGHT_ROSTER to listOf("gerenciar", "total possuido", "casa dos cavaleiros", "desbloquear", "raridade", "configuracoes", "informacoes", "cavaleiros", "knights", "saints", "caballeros", "collection"),
+        // Aprimorar e abas (Renascimento, Sétimo Sentido, Habilidade, Vínculo)
+        ScreenKind.KNIGHT_DETAIL to listOf("aprimorar", "atributos basicos", "atributos de luta", "subir de nivel", "renascimento", "setimo sentido", "oitavo sentido", "vinculo", "estatisticas", "atributo", "skills", "attributes"),
+        ScreenKind.TEAM_FORMATION to listOf("formacao", "formacoes", "salvar", "colocar", "formation", "lineup", "equipe", "team"),
+        ScreenKind.COSMOS to listOf("cosmos", "solar", "lunar", "estelar", "stellar", "lendario", "codice do cosmo"),
+        ScreenKind.INVENTORY to listOf("inventario", "qtde", "vender", "materiais", "fragmentos", "inventory", "backpack"),
+        ScreenKind.SUMMON_BANNER to listOf("invocacao", "invocar", "invocacao tematica", "tentativa", "summon", "banner", "rate up", "recrutar"),
+        ScreenKind.PVP_LOBBY to listOf("pvp", "arena de honra", "duelo galactico", "galactic duel", "ranking", "classificatoria", "jxj"),
+        ScreenKind.PICK_BAN to listOf("pick", "ban", "banir", "banido", "proibir"),
         ScreenKind.ENEMY_PREVIEW to listOf("adversario", "oponente", "opponent", "enemy", "inimigo", "rival", "poder do oponente"),
-        ScreenKind.BATTLE to listOf("auto", "pausar", "pause", "rodada", "round", "turno", "turn", "ultimate", "skip"),
-        ScreenKind.BATTLE_RESULT to listOf("vitoria", "victory", "victoria", "derrota", "defeat", "recompensas", "rewards", "resultado", "result"),
-        ScreenKind.EVENTS to listOf("evento", "event", "evento", "missao", "quest", "mission", "diaria", "daily", "semanal", "weekly"),
+        ScreenKind.BATTLE to listOf("ataque basico", "passiva", "bloqueado", "rodada", "pular", "pausar", "turno", "ultimate", "skip"),
+        ScreenKind.BATTLE_RESULT to listOf("win", "lose", "vitoria", "derrota", "victory", "defeat", "dados", "recompensas obtidas", "recompensas", "resultado"),
+        ScreenKind.EVENTS to listOf("evento", "event", "missao", "quest", "mission", "diaria", "daily", "semanal", "weekly", "atividade", "gato da fortuna"),
         ScreenKind.LOADING to listOf("iniciar jogo", "start game", "repair client", "verificando arquivos", "checking resources", "carregando", "loading", "atualizando recursos", "baixando"),
-        ScreenKind.HOME to listOf("legiao", "legion", "santuario", "sanctuary", "loja", "shop", "aventura", "adventure", "sorteio"),
+        ScreenKind.HOME to listOf("desenvolvimento", "fortaleza", "codices", "mercado", "legiao", "campanha", "diario", "cidadela", "forum", "festa de castelo"),
     )
 
     fun levelCount(lines: List<TextLine>) = lines.count { levelRegex.containsMatchIn(it.text) }
@@ -47,9 +49,8 @@ object ScreenClassifier {
         if (folded.any { it.contains("iniciar jogo") || it.contains("repair client") || it.contains("start game") }) scores.merge(ScreenKind.LOADING, 1.0, Double::plus)
         val lv = levelCount(lines)
         // sinais estruturais
-        if (lv >= 3) scores.merge(ScreenKind.KNIGHT_ROSTER, 2.0, Double::plus)
-        if (lv in 1..3) scores.merge(ScreenKind.KNIGHT_DETAIL, 0.5, Double::plus)
-        if (lv in 4..8) scores.merge(ScreenKind.TEAM_FORMATION, 0.5, Double::plus)
+        // 3+ rótulos "lv.NN" = grade de cartas (Gerenciar ou Formação); as palavras-chave desempatam
+        if (lv >= 3) { scores.merge(ScreenKind.KNIGHT_ROSTER, 1.0, Double::plus); scores.merge(ScreenKind.TEAM_FORMATION, 1.0, Double::plus) }
         // resultado de batalha tem prioridade sobre o resto quando bem evidente
         val best = scores.maxByOrNull { it.value } ?: return ScreenKind.UNKNOWN to 0.0
         if (best.value < 2.0) return ScreenKind.UNKNOWN to best.value

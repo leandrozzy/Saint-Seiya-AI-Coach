@@ -52,6 +52,7 @@ fun HojeScreen(vm: AppViewModel, act: Actions, nav: Nav) {
     val issues by vm.issues.collectAsState()
     val imp by vm.importState.collectAsState()
     val team by vm.teamSuggestion.collectAsState()
+    val totalOwned by vm.totalOwned.collectAsState()
     val confirmed = knights.count { it.status == "CONFIRMED" }
     val candidates = knights.count { it.status == "CANDIDATE" }
     var showLast by remember { mutableStateOf(false) }
@@ -65,7 +66,7 @@ fun HojeScreen(vm: AppViewModel, act: Actions, nav: Nav) {
     if (picker) GamePicker(ctx, onPick = { prefs.gamePackage = it; gamePkg = it; picker = false }, onDismiss = { picker = false })
     if (showHow) AlertDialog(onDismissRequest = { showHow = false },
         title = { Text("Antes de começar") },
-        text = { Text("Na janela do Android que vai abrir, escolha “Tela inteira” (ou o app do jogo), e toque em “Iniciar agora”.\n\nDepois abra o jogo e navegue devagar: deixe cada tela (lista de cavaleiros, ficha, formação) parada por 2–3 segundos. A leitura ao vivo aparece aqui em Hoje: se “quadros recebidos” subir, a captura está funcionando.") },
+        text = { Text("Na janela do Android, escolha “Tela inteira” e toque em “Iniciar agora”.\n\nNo jogo: Cavaleiros › Gerenciar (o app lê o “Total possuído”). Depois toque em “Aprimorar” e use a seta ‹ › ao lado do personagem: cada toque mostra o próximo cavaleiro e o app lê nome, nível, estrelas e atributos. Deixe cada tela ~1 s parada. Por fim abra o Inventário (toque nos itens para ler a QTDE).") },
         confirmButton = { TextButton({ showHow = false; if (gamePkg != null) act.onStartAndPlay() else act.onStart() }) { Text(if (gamePkg != null) "Iniciar e abrir o jogo" else "Entendi, iniciar") } },
         dismissButton = { TextButton({ showHow = false }) { Text("Cancelar") } })
 
@@ -125,7 +126,7 @@ fun HojeScreen(vm: AppViewModel, act: Actions, nav: Nav) {
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
                 val pct = Recommender.coveragePercent(visited)
                 Box(Modifier.weight(1f)) { SCard { Small("Conta analisada"); Text("$pct%", color = C.celeste, style = MaterialTheme.typography.headlineMedium); Small("${Recommender.coverageChecklist.count { it.first in visited }}/${Recommender.coverageChecklist.size} telas-chave lidas") } }
-                Box(Modifier.weight(1f)) { SCard { Small("Cavaleiros confirmados"); Text("$confirmed", color = C.gold, style = MaterialTheme.typography.headlineMedium); Small(if (candidates > 0) "+$candidates a confirmar" else "lidos do seu jogo") } }
+                Box(Modifier.weight(1f)) { SCard { Small("Cavaleiros confirmados"); Text("$confirmed", color = C.gold, style = MaterialTheme.typography.headlineMedium); Small(when { totalOwned != null -> "de $totalOwned informados pelo jogo"; candidates > 0 -> "+$candidates a confirmar"; else -> "lidos do seu jogo" }) } }
             }
         }
         item {
@@ -234,8 +235,18 @@ fun ContaScreen(vm: AppViewModel, nav: Nav) {
 
 @Composable
 private fun ContaGeral(vm: AppViewModel) {
-    val knights by vm.knights.collectAsState(); val visited by vm.visited.collectAsState()
+    val knights by vm.knights.collectAsState(); val visited by vm.visited.collectAsState(); val total by vm.totalOwned.collectAsState()
     LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp), contentPadding = PaddingValues(bottom = 16.dp)) {
+        item {
+            SCard(accent = C.gold) {
+                H("Coleção de cavaleiros")
+                val read = knights.count { it.status == "CONFIRMED" }
+                if (total != null) {
+                    Body("Lidos: $read de $total (total informado pelo próprio jogo)")
+                    LinearProgressIndicator(progress = { (read.toFloat() / total!!).coerceIn(0f, 1f) }, modifier = Modifier.fillMaxWidth())
+                } else Body("Lidos: $read. Abra Casa dos Cavaleiros › Gerenciar para o app ler o total possuído.")
+            }
+        }
         item {
             SCard {
                 H("Cobertura da conta")
@@ -280,7 +291,8 @@ private fun Cavaleiros(vm: AppViewModel) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f)) {
                             Text(k.displayName, fontWeight = FontWeight.SemiBold, color = C.text)
-                            Small("Nível: ${k.level ?: "desconhecido"} · Função: ${k.role?.let { Role.valueOf(it).label } ?: "desconhecida"} · visto em ${fmtTime(k.lastSeenAt)}")
+                            Small("Nível ${k.level ?: "?"}${k.stars?.let { " · ★$it" } ?: ""}${k.rarity?.let { " · $it" } ?: ""} · Função ${k.role?.let { Role.valueOf(it).label } ?: "desconhecida"} · visto ${fmtTime(k.lastSeenAt)}")
+                            if (k.pv != null) Small("PV ${k.pv} · ATQ C ${k.atqC ?: "?"} · DEF C ${k.defC ?: "?"} · ATQ F ${k.atqF ?: "?"} · DEF F ${k.defF ?: "?"} · VEL ${k.vel ?: "?"}")
                         }
                         when (k.status) {
                             "CONFIRMED" -> Badge("possuído", C.ok); "CANDIDATE" -> Badge("a confirmar", C.warn); else -> Badge("não possuído", C.muted)
@@ -316,6 +328,8 @@ private fun KnightDialog(vm: AppViewModel, k: KnightEntity, onDismiss: () -> Uni
                     Confidence(k.confidence)
                     Small("Primeira leitura ${fmtTime(k.firstSeenAt)} · última ${fmtTime(k.lastSeenAt)} · observações: ${k.sightings} · origem: observação #${k.sourceObservationId ?: "manual"}")
                     if (k.levelLocked) Small("Nível corrigido manualmente (o OCR não sobrescreve).")
+                    Body("Estrelas: ${k.stars ?: "desconhecido"} · Raridade: ${k.rarity ?: "desconhecida"}")
+                    Body("PV ${k.pv ?: "?"} · ATQ C ${k.atqC ?: "?"} · DEF C ${k.defC ?: "?"}\nATQ F ${k.atqF ?: "?"} · DEF F ${k.defF ?: "?"} · Velocidade ${k.vel ?: "?"}")
                 }
                 item {
                     OutlinedTextField(lv, { lv = it.filter(Char::isDigit) }, label = { Text("Nível (corrigir)") }, singleLine = true)

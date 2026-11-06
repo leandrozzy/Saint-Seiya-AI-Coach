@@ -61,6 +61,15 @@ data class KnightEntity(
     val levelLocked: Boolean,
     val version: Int,
     val updatedAt: Long,
+    // v2 (lidos do painel Aprimorar; null = desconhecido, nunca 0)
+    val stars: Int? = null,
+    val rarity: String? = null,
+    val pv: Int? = null,
+    val atqC: Int? = null,
+    val defC: Int? = null,
+    val atqF: Int? = null,
+    val defF: Int? = null,
+    val vel: Int? = null,
 )
 
 @Entity(tableName = "knight_history", indices = [Index("accountId", "key")])

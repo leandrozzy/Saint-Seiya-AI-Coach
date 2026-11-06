@@ -43,27 +43,6 @@ class ClassifierTest {
     }
 }
 
-class AnalyzerTest {
-    @Test fun pairsNameWithLevel() {
-        val lines = listOf(
-            line("Cavaleiros", 10, 10), line("Filtrar", 900, 10),
-            line("Seiya", 100, 300), line("Lv.45", 100, 340),
-            line("Shiryu", 400, 300), line("Lv.40", 400, 340),
-            line("Hyoga", 700, 300), line("Lv.38", 700, 340),
-            line("Shun", 1000, 300), line("Lv.12", 1000, 340),
-        )
-        val a = ScreenAnalyzer.analyze(lines, 2400, 1080)
-        assertEquals(ScreenKind.KNIGHT_ROSTER, a.kind)
-        val m = a.knights.associate { it.rawName to it.level }
-        assertEquals(45, m["Seiya"]); assertEquals(12, m["Shun"]); assertEquals(4, m.size)
-    }
-    @Test fun inventoryResources() {
-        val lines = listOf(line("Inventário", 0, 0), line("Itens", 0, 40), line("Poeira estelar", 100, 200), line("x1,250", 100, 240, 100))
-        val a = ScreenAnalyzer.analyze(lines, 2400, 1080)
-        assertEquals(1250L, a.resources.single().value)
-    }
-}
-
 class ReconcilerTest {
     private val now = 1000L
     private fun r(n: String, lv: Int?) = KnightReading(n, lv, 0.8)
@@ -137,7 +116,7 @@ class TeamTest {
         val adv = Recommender.advise(emptyList(), 0, emptySet(), 0)
         assertEquals("first-read", adv.first().id)
         assertEquals(0, Recommender.coveragePercent(emptySet()))
-        assertEquals(40, Recommender.coveragePercent(setOf(ScreenKind.COSMOS, ScreenKind.INVENTORY)))
+        assertEquals(50, Recommender.coveragePercent(setOf(ScreenKind.TEAM_FORMATION, ScreenKind.INVENTORY)))
     }
     @Test fun levelAdviceHasUnknownCost() {
         val t = (1..6).map { k("K$it", if (it == 1) 10 else 60) }
@@ -147,32 +126,83 @@ class TeamTest {
     }
 }
 
-class InlineLevelTest {
-    @Test fun nameAndLevelOnSameLine() {
-        val lines = listOf(line("Seiya Lv.45", 100, 300), line("Shiryu Nv 40", 400, 300), line("Hyoga LV.38", 700, 300), line("Cavaleiros", 0, 0))
-        val a = ScreenAnalyzer.analyze(lines, 2400, 1080)
-        assertEquals(ScreenKind.KNIGHT_ROSTER, a.kind)
-        assertEquals(mapOf("Seiya" to 45, "Shiryu" to 40, "Hyoga" to 38), a.knights.associate { it.rawName to it.level })
-    }
-    @Test fun levelTokenAnywhere() { assertEquals(80, ScreenClassifier.levelOf("Lv.80/100")); assertNull(ScreenClassifier.levelOf("Level up")) }
-}
-
-class FallbackTest {
-    @Test fun unknownScreenWithPairsBecomesRoster() {
-        val lines = listOf(line("Seiya", 100, 300), line("Lv.45", 100, 340), line("Shiryu", 600, 300), line("Lv.40", 600, 340))
-        val a = ScreenAnalyzer.analyze(lines, 2400, 1080)
-        assertEquals(ScreenKind.KNIGHT_ROSTER, a.kind); assertEquals(2, a.knights.count { it.level != null })
-    }
-    @Test fun detailPicksLargestNameFarFromLevel() {
-        val lines = listOf(TextLine("Seiya", 100, 40, 500, 120), TextLine("Equipar", 100, 600, 300, 630), TextLine("Lv.60", 900, 400, 1000, 430), TextLine("Habilidades", 100, 700, 400, 730), TextLine("Atributos", 100, 760, 400, 790))
-        val a = ScreenAnalyzer.analyze(lines, 2400, 1080)
-        assertEquals(60, a.knights.single { it.level != null }.level); assertEquals("Seiya", a.knights.single { it.level != null }.rawName)
-    }
-}
-
 class LoadingTest {
     @Test fun loginScreenRecognized() {
         assertEquals(ScreenKind.LOADING, ScreenClassifier.classify(listOf(line("Iniciar Jogo", 0, 0))).first)
         assertEquals(ScreenKind.LOADING, ScreenClassifier.classify(listOf(line("Repair Client", 0, 0), line("Verificando arquivos de recurso", 0, 40))).first)
+    }
+}
+
+/** Coordenadas medidas no vídeo real (2448x1080): painel "Aprimorar" de um Guerreiro Marina nível 11. */
+private const val W = 2448
+private const val H = 1080
+private fun at(t: String, x: Double, y: Double, w: Int = 120, h: Int = 34) = TextLine(t, (x * W).toInt() - w / 2, (y * H).toInt() - h / 2, (x * W).toInt() + w / 2, (y * H).toInt() + h / 2)
+
+private fun aprimorar(level: String = "Nível 11") = listOf(
+    at("Aprimorar", 0.14, 0.035), at("Atributo", 0.696, 0.118), at(level, 0.72, 0.223, 200),
+    at("Atributos Básicos", 0.595, 0.363, 260), at("1458", 0.636, 0.43), at("231+14", 0.808, 0.43),
+    at("ATQ C.", 0.58, 0.488), at("0+14", 0.652, 0.488), at("65", 0.808, 0.488),
+    at("65", 0.636, 0.548), at("22", 0.808, 0.548),
+    at("Atributos de Luta", 0.595, 0.632, 280), at("225", 0.81, 0.69), at("Subir de Nível", 0.025, 0.26, 150),
+    at("Renascimento", 0.025, 0.4, 150), at("Sétimo Sentido", 0.025, 0.55, 150), at("Vínculo", 0.025, 0.86, 100),
+)
+
+class StageTest {
+    @Test fun cleanName() {
+        assertEquals("Guerreiro Marina", Stage.cleanName("Guerreiro Marina /"))
+        assertEquals("Thane da Terra Flamejante", Stage.cleanName("| Thane da Terra Flamejante //"))
+        assertNull(Stage.cleanName("3 A : |")); assertNull(Stage.cleanName("ab"))
+        assertEquals("SS", Stage.cleanRarity("ss")); assertNull(Stage.cleanRarity("Luta"))
+    }
+    @Test fun stars() {
+        assertTrue(Stage.isGold(240, 190, 60)); assertFalse(Stage.isGold(120, 130, 150))
+        assertEquals(2, Stage.starsFrom(booleanArrayOf(true, true, false, false, false, false))); assertNull(Stage.starsFrom(BooleanArray(6)))
+    }
+    @Test fun aprimorarIsClassifiedAndRead() {
+        val a = ScreenAnalyzer.analyze(aprimorar(), W, H, StageStrip("Guerreiro Marina", "C", 2, 0.8))
+        assertEquals(ScreenKind.KNIGHT_DETAIL, a.kind)
+        val k = a.knights.single()
+        assertEquals("Guerreiro Marina", k.rawName); assertEquals(11, k.level); assertEquals(2, k.stars); assertEquals("C", k.rarity); assertTrue(k.strong)
+        assertEquals(mapOf("pv" to 1458, "atqC" to 0, "defC" to 65, "atqF" to 231, "defF" to 65, "vel" to 22), k.stats)
+    }
+    @Test fun levelSplitAcrossLines() {
+        val lines = aprimorar("Nível").filter { it.text != "Nível" } + listOf(at("Nível", 0.70, 0.223, 90), at("12", 0.76, 0.225, 50)) 
+        assertEquals(12, Stage.panelLevel(lines, W, H))
+    }
+    @Test fun criticalLabelIsNotLevel() { assertNull(Stage.panelLevel(listOf(at("Nível Crít. F.", 0.72, 0.1, 200), at("225", 0.82, 0.1, 50)), W, H)) }
+    @Test fun gerenciarHasNoLevelSoNoOwnership() {
+        val lines = listOf(at("Gerenciar", 0.14, 0.035), at("Total possuído: 113", 0.8, 0.96, 300), at("Casa dos Cavaleiros", 0.05, 0.6, 200), at("Desbloquear", 0.46, 0.96, 120),
+            at("Configurações", 0.46, 0.67, 150), at("Luta", 0.7, 0.4), at("lv.40 (Máx.)", 0.72, 0.4, 150), at("lv.40 (Máx.)", 0.84, 0.4, 150), at("lv.20 (Máx.)", 0.95, 0.4, 150))
+        val a = ScreenAnalyzer.analyze(lines, W, H, StageStrip("Thane da Terra Flamejante", "C", 2, 0.8))
+        assertEquals(ScreenKind.KNIGHT_ROSTER, a.kind)
+        assertEquals(113L, a.resources.single { it.label == ScreenAnalyzer.TOTAL_OWNED_LABEL }.value)
+        val k = a.knights.single(); assertNull(k.level); assertFalse(k.strong)   // sem Nível => não prova posse
+        // "Luta"/"lv.NN" das cartas nunca viram cavaleiros
+        assertTrue(a.knights.none { it.rawName == "Luta" })
+    }
+    @Test fun inventoryQtde() {
+        val lines = listOf(at("Inventário", 0.5, 0.05), at("Cristal Valiosa", 0.1, 0.2, 200), at("QTDE: 7", 0.12, 0.26, 120), at("Vender", 0.1, 0.9, 80))
+        val a = ScreenAnalyzer.analyze(lines, W, H)
+        assertEquals(ScreenKind.INVENTORY, a.kind); assertEquals(7L, a.resources.single { it.label == "Cristal Valiosa" }.value)
+    }
+    @Test fun winScreen() {
+        val a = ScreenAnalyzer.analyze(listOf(at("WIN", 0.5, 0.2), at("Dados", 0.6, 0.4), at("+2520", 0.5, 0.4)), W, H)
+        assertEquals(ScreenKind.BATTLE_RESULT, a.kind); assertEquals("VICTORY", a.battleOutcome)
+    }
+    @Test fun battleHud() {
+        assertEquals(ScreenKind.BATTLE, ScreenClassifier.classify(listOf(at("Ataque Básico", 0.9, 0.9), at("Passiva", 0.9, 0.7), at("Bloqueado", 0.9, 0.75))).first)
+    }
+    @Test fun strongEvidenceConfirmsImmediately() {
+        val r = KnightReading("Guerreiro Marina", 11, 0.8, stars = 2, rarity = "C", stats = mapOf("pv" to 1458), strong = true)
+        val st = Reconciler.mergeKnight(null, r, ScreenKind.KNIGHT_DETAIL, false, 1, 10L).state!!
+        assertEquals(KnightStatus.CONFIRMED, st.status); assertEquals(1458, st.pv); assertEquals(2, st.stars)
+        // nova leitura sem stats/estrelas não apaga o que já havia
+        val again = Reconciler.mergeKnight(st, KnightReading("Guerreiro Marina", 12, 0.8, strong = true), ScreenKind.KNIGHT_DETAIL, true, 2, 11L).state!!
+        assertEquals(12, again.level); assertEquals(1458, again.pv); assertEquals(2, again.stars)
+    }
+    @Test fun coverageAdviceUsesGameTotal() {
+        val ks = (1..3).map { KnightState("k$it", "K$it", 10, null, KnightStatus.CONFIRMED, 0.8, 1, 0, 0) }
+        val adv = Recommender.advise(ks, 0, setOf(ScreenKind.KNIGHT_ROSTER), 0, totalOwned = 113)
+        assertTrue(adv.any { it.id == "coverage-knights" && it.title.contains("110") })
     }
 }

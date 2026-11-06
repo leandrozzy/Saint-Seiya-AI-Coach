@@ -22,11 +22,13 @@ class Repository(val db: CoachDb) {
         key, displayName, level, role?.let { runCatching { Role.valueOf(it) }.getOrNull() },
         runCatching { KnightStatus.valueOf(status) }.getOrDefault(KnightStatus.SEEN_ELSEWHERE),
         confidence, sightings, firstSeenAt, lastSeenAt, sourceObservationId, levelLocked,
+        stars, rarity, pv, atqC, defC, atqF, defF, vel,
     )
 
     private fun KnightState.toEntity(acc: Long, version: Int, now: Long) = KnightEntity(
         acc, key, displayName, level, role?.name, status.name, confidence, sightings, firstSeenAt, lastSeenAt,
         sourceObservationId, levelLocked, version, now,
+        stars, rarity, pv, atqC, defC, atqF, defF, vel,
     )
 
     suspend fun ensureAccount(): Long {

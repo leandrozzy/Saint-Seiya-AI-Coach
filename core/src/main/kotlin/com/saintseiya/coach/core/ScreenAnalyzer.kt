@@ -22,64 +22,66 @@ object ScreenAnalyzer {
         return true
     }
 
-    fun analyze(lines: List<TextLine>, imgW: Int, imgH: Int): ScreenAnalysis {
+    private val totalOwned = Regex("total\\s*possu[^\\d]{0,12}(\\d{1,4})", RegexOption.IGNORE_CASE)
+    private val qtde = Regex("qtde\\W*(\\d[\\d.,]*)", RegexOption.IGNORE_CASE)
+
+    /**
+     * `stage` = faixa vertical do nome lida pelo app (ver [Stage]). Nas telas de cavaleiro (Gerenciar/Aprimorar...) o jogo NÃO
+     * mostra nomes na grade: o nome vem da faixa, o nível ("Nível N") e os atributos do painel Aprimorar.
+     */
+    fun analyze(lines: List<TextLine>, imgW: Int, imgH: Int, stage: StageStrip? = null): ScreenAnalysis {
         var (kind, score) = ScreenClassifier.classify(lines)
-        // Rede de segurança: tela sem palavra-chave reconhecida mas com 2+ pares nome+nível => provável tela de coleção.
-        // (Só quando NENHUM tipo foi reconhecido; telas de adversário/banner/PvP seguem a classificação.)
-        if (kind == ScreenKind.UNKNOWN && pairNamesWithLevels(lines, imgW, imgH).count { it.level != null } >= 2) {
-            kind = ScreenKind.KNIGHT_ROSTER; score = 1.0
+        val resources = ArrayList<ResourceReading>()
+        val panelLevel = Stage.panelLevel(lines, imgW, imgH)
+        val stats = Stage.basicStats(lines, imgW, imgH)
+        // tela sem palavra-chave mas com faixa de nome + painel de nível => ficha de cavaleiro
+        if (kind == ScreenKind.UNKNOWN && stage?.name != null && panelLevel != null && stats.size >= 3) { kind = ScreenKind.KNIGHT_DETAIL; score = 2.0 }
+
+        val knights = ArrayList<KnightReading>()
+        if (kind == ScreenKind.KNIGHT_ROSTER || kind == ScreenKind.KNIGHT_DETAIL) {
+            val name = stage?.name?.let { Stage.cleanName(it) }
+            if (name != null) {
+                // posse só com NÍVEL lido no painel (a grade "Gerenciar" também lista cavaleiros ainda não obtidos)
+                val strong = panelLevel != null && stats.size >= 3
+                val conf = (stage.confidence.coerceIn(0.0, 1.0) * 0.5 + (if (panelLevel != null) 0.4 else 0.1) + (if (strong) 0.1 else 0.0)).coerceIn(0.0, 1.0)
+                knights += KnightReading(name, panelLevel, conf, stage.stars, Stage.cleanRarity(stage.rarity), stats, strong)
+            }
         }
-        val knights = if (kind.ownData) pairNamesWithLevels(lines, imgW, imgH) else emptyList()
-        val resources = if (kind == ScreenKind.INVENTORY || kind == ScreenKind.HOME || kind == ScreenKind.SUMMON_BANNER) readResources(lines) else emptyList()
+        // "Total possuído: 113" (rodapé de Gerenciar): métrica oficial do jogo para medir a cobertura
+        lines.firstNotNullOfOrNull { totalOwned.find(it.text) }?.groupValues?.get(1)?.toIntOrNull()?.takeIf { it in 1..9999 }
+            ?.let { resources += ResourceReading(TOTAL_OWNED_LABEL, it.toLong(), 0.85) }
+        // Inventário: "QTDE: 5" ao lado do nome do item selecionado
+        if (kind == ScreenKind.INVENTORY || lines.any { qtde.containsMatchIn(it.text) }) resources += readQtde(lines, imgH)
+        if (kind == ScreenKind.HOME || kind == ScreenKind.SUMMON_BANNER) resources += readResources(lines)
         val outcome = if (kind == ScreenKind.BATTLE_RESULT) {
             val f = lines.map { Norm.fold(it.text) }
-            val win = f.any { it.contains("vitoria") || it.contains("victory") || it.contains("victoria") }
-            val lose = f.any { it.contains("derrota") || it.contains("defeat") }
+            fun has(vararg w: String) = f.any { l -> w.any { Regex("(^|[^a-z])$it([^a-z]|$)").containsMatchIn(l) } }
+            val win = has("win", "vitoria", "victory", "victoria"); val lose = has("lose", "derrota", "defeat", "fracasso")
             when { win && !lose -> "VICTORY"; lose && !win -> "DEFEAT"; else -> null }
         } else null
         return ScreenAnalysis(kind, score, knights, resources, outcome, lines.size)
     }
 
+    const val TOTAL_OWNED_LABEL = "Cavaleiros possuídos (total informado pelo jogo)"
+
+    private fun readQtde(lines: List<TextLine>, imgH: Int): List<ResourceReading> {
+        val out = ArrayList<ResourceReading>()
+        for (l in lines) {
+            val m = qtde.find(l.text) ?: continue
+            val v = Norm.parseNumber(m.groupValues[1]) ?: continue
+            // o nome do item fica acima (ou na mesma linha, antes de QTDE)
+            val before = l.text.substring(0, m.range.first).trim()
+            val name = if (before.length >= 3 && isNameLike(before)) before else
+                lines.filter { it !== l && isNameLike(it.text) && it.cy < l.cy && l.cy - it.cy < 0.18 * imgH && kotlin.math.abs(it.left - l.left) < 0.12 * imgH * 3 }
+                    .minByOrNull { l.cy - it.cy }?.text?.trim()
+            if (name != null) out += ResourceReading(name, v, 0.65)
+        }
+        return out
+    }
+
     /** Também usado para detectar nomes em telas "não-próprias" contra o catálogo (ver Reconciler). */
     fun allNameCandidates(lines: List<TextLine>): List<String> =
         lines.map { it.text.trim() }.filter { isNameLike(it) }
-
-    fun pairNamesWithLevels(lines: List<TextLine>, imgW: Int, imgH: Int): List<KnightReading> {
-        val diag = hypot(imgW.toDouble(), imgH.toDouble()).coerceAtLeast(1.0)
-        val names = lines.filter { isNameLike(it.text) }
-        val used = HashSet<TextLine>()
-        val out = ArrayList<KnightReading>()
-        val levels = lines.filter { ScreenClassifier.levelOf(it.text) != null }
-        // "Seiya Lv.80" na mesma linha
-        for (lv in levels) {
-            val before = ScreenClassifier.textBeforeLevel(lv.text)
-            if (before.isNotBlank() && isNameLike(before)) {
-                out += KnightReading(before, ScreenClassifier.levelOf(lv.text)!!, (0.85 * minOf(1f, lv.confidence).toDouble()).coerceAtLeast(0.55))
-                used += lv
-            }
-        }
-        for (lv in levels.filter { it !in used }) {
-            val level = ScreenClassifier.levelOf(lv.text)!!
-            val best = names.filter { it !in used }
-                .map { it to hypot(it.cx - lv.cx, it.cy - lv.cy) / diag }
-                .filter { (n, d) -> d < 0.18 && n.cy <= lv.cy + lv.height * 2 }
-                .minByOrNull { it.second } ?: continue
-            used += best.first
-            val conf = (0.9 - best.second * 2).coerceIn(0.4, 0.9) * minOf(1f, (best.first.confidence + lv.confidence) / 2f).toDouble().coerceAtLeast(0.5)
-            out += KnightReading(best.first.text.trim(), level, conf)
-        }
-        // 2ª passada (fichas): o nome costuma ser o texto MAIOR da tela, longe do nível. Confiança menor.
-        for (lv in levels.filter { it !in used }) {
-            val level = ScreenClassifier.levelOf(lv.text)!!
-            val best = names.filter { it !in used && hypot(it.cx - lv.cx, it.cy - lv.cy) / diag < 0.35 }
-                .maxByOrNull { it.height } ?: continue
-            used += best
-            out += KnightReading(best.text.trim(), level, 0.55)
-        }
-        // nomes sem nível: leitura sem nível (NÃO conta como posse)
-        for (n in names) if (n !in used) out += KnightReading(n.text.trim(), null, 0.4)
-        return out
-    }
 
     fun readResources(lines: List<TextLine>): List<ResourceReading> {
         val out = LinkedHashMap<String, ResourceReading>()

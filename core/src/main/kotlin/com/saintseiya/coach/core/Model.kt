@@ -38,7 +38,19 @@ data class TextLine(
     val height get() = (bottom - top).coerceAtLeast(1)
 }
 
-data class KnightReading(val rawName: String, val level: Int?, val confidence: Double)
+/** Leitura de um cavaleiro. `strong` = nível E atributos lidos no painel "Aprimorar" (prova forte de posse). */
+data class KnightReading(
+    val rawName: String,
+    val level: Int?,
+    val confidence: Double,
+    val stars: Int? = null,
+    val rarity: String? = null,
+    val stats: Map<String, Int> = emptyMap(),
+    val strong: Boolean = false,
+)
+
+/** Faixa vertical do nome (lida pelo app girando o recorte), raridade (letra) e estrelas (cor). */
+data class StageStrip(val name: String?, val rarity: String?, val stars: Int?, val confidence: Double)
 data class ResourceReading(val label: String, val value: Long, val confidence: Double)
 
 data class ScreenAnalysis(
@@ -63,6 +75,14 @@ data class KnightState(
     val lastSeenAt: Long,
     val sourceObservationId: Long? = null,
     val levelLocked: Boolean = false, // corrigido manualmente: OCR não sobrescreve
+    val stars: Int? = null,
+    val rarity: String? = null,
+    val pv: Int? = null,
+    val atqC: Int? = null,
+    val defC: Int? = null,
+    val atqF: Int? = null,
+    val defF: Int? = null,
+    val vel: Int? = null,
 )
 
 data class Change(val field: String, val old: String?, val new: String?)

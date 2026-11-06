@@ -68,6 +68,7 @@ object Recommender {
         screensVisited: Set<ScreenKind>,
         now: Long,
         staleMs: Long = 7L * 24 * 3600 * 1000,
+        totalOwned: Int? = null,
     ): List<Advice> {
         val out = ArrayList<Advice>()
         val confirmed = knights.filter { it.status == KnightStatus.CONFIRMED }
@@ -75,6 +76,11 @@ object Recommender {
             out += Advice("first-read", "Faça sua primeira leitura",
                 "Ainda não há cavaleiros confirmados; sem eles não dá para montar equipes nem planos.",
                 "Nenhum dado de conta", "Gratuito, ~3 min", "Habilita equipes e evolução", 0.9, 100)
+        }
+        if (totalOwned != null && confirmed.size < totalOwned) {
+            out += Advice("coverage-knights", "Faltam ${totalOwned - confirmed.size} cavaleiros: o jogo informa $totalOwned, você leu ${confirmed.size}",
+                "A lista do jogo não mostra nomes. Abra um cavaleiro em Aprimorar e toque na seta ‹ › ao lado dele: cada toque mostra o próximo e o app lê nome, nível, estrelas e atributos.",
+                "\"Total possuído\" lido em Gerenciar", "Gratuito, ~1 toque por cavaleiro", "Equipes e plano com toda a coleção", 0.9, 95)
         }
         val missing = coverageChecklist.filter { it.first !in screensVisited }
         if (missing.isNotEmpty() && confirmed.isNotEmpty()) {
@@ -105,11 +111,10 @@ object Recommender {
     }
 
     val coverageChecklist: List<Pair<ScreenKind, String>> = listOf(
-        ScreenKind.KNIGHT_ROSTER to "Lista de cavaleiros",
-        ScreenKind.KNIGHT_DETAIL to "Ficha de um cavaleiro",
-        ScreenKind.TEAM_FORMATION to "Formação de equipe",
-        ScreenKind.COSMOS to "Cosmos",
-        ScreenKind.INVENTORY to "Inventário",
+        ScreenKind.KNIGHT_ROSTER to "Casa dos Cavaleiros › Gerenciar (mostra o total possuído)",
+        ScreenKind.KNIGHT_DETAIL to "Aprimorar (nome, nível, estrelas e atributos)",
+        ScreenKind.INVENTORY to "Inventário (item + QTDE)",
+        ScreenKind.TEAM_FORMATION to "Formações",
     )
 
     /** Cobertura = telas do checklist já lidas / total do checklist (métrica explícita). */

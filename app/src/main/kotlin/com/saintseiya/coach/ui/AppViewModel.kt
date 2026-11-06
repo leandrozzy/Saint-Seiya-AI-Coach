@@ -47,13 +47,17 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     val report = CaptureState.report
 
     private fun KnightEntity.state() = KnightState(key, displayName, level, role?.let { runCatching { Role.valueOf(it) }.getOrNull() },
-        runCatching { KnightStatus.valueOf(status) }.getOrDefault(KnightStatus.SEEN_ELSEWHERE), confidence, sightings, firstSeenAt, lastSeenAt, sourceObservationId, levelLocked)
+        runCatching { KnightStatus.valueOf(status) }.getOrDefault(KnightStatus.SEEN_ELSEWHERE), confidence, sightings, firstSeenAt, lastSeenAt, sourceObservationId, levelLocked,
+        stars, rarity, pv, atqC, defC, atqF, defF, vel)
 
     val knightStates = knights.map { l -> l.map { it.state() } }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
     val teamSuggestion = knightStates.map { TeamBuilder.build(it) }.stateIn(viewModelScope, SharingStarted.Eagerly, TeamBuilder.build(emptyList()))
-    val advice = combine(knightStates, issues, visited, knights) { ks, iss, vis, kEnt ->
+    /** "Total possuído" lido na tela Gerenciar: total oficial do jogo (null = ainda não lido). */
+    val totalOwned = resources.map { l -> l.firstOrNull { it.label == ScreenAnalyzer.TOTAL_OWNED_LABEL }?.value?.toInt() }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, null)
+    val advice = combine(knightStates, issues, visited, knights, totalOwned) { ks, iss, vis, kEnt, total ->
         val candidates = kEnt.count { it.status == "CANDIDATE" }
-        Recommender.advise(ks, iss.size + candidates, vis, System.currentTimeMillis())
+        Recommender.advise(ks, iss.size + candidates, vis, System.currentTimeMillis(), totalOwned = total)
     }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
     init {

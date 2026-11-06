@@ -15,7 +15,7 @@ import androidx.room.RoomDatabase
         KnightHistoryEntity::class, ResourceEntity::class, IssueEntity::class, BattleEntity::class,
         TeamEntity::class, RecommendationLogEntity::class, CatalogEntity::class,
     ],
-    version = 1,
+    version = 2,
     exportSchema = true,
 )
 abstract class CoachDb : RoomDatabase() {
@@ -28,6 +28,14 @@ abstract class CoachDb : RoomDatabase() {
                 .addMigrations(*MIGRATIONS)
                 .build().also { inst = it }
         }
-        val MIGRATIONS: Array<androidx.room.migration.Migration> = arrayOf()
+        /** 1→2: estrelas, raridade e atributos básicos do cavaleiro (colunas anuláveis; dados existentes preservados). */
+        val MIGRATIONS: Array<androidx.room.migration.Migration> = arrayOf(
+            object : androidx.room.migration.Migration(1, 2) {
+                override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                    for (c in listOf("stars INTEGER", "rarity TEXT", "pv INTEGER", "atqC INTEGER", "defC INTEGER", "atqF INTEGER", "defF INTEGER", "vel INTEGER"))
+                        db.execSQL("ALTER TABLE knight ADD COLUMN $c")
+                }
+            },
+        )
     }
 }
