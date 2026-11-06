@@ -147,3 +147,15 @@ data class CatalogEntity(
     val source: String, // LEARNED | PACK
     val addedAt: Long,
 )
+
+/** Habilidade de um cavaleiro (aba "Habilidade"). Nome pode vir truncado pelo jogo ("Espada Sagrada.S..."). */
+@Entity(tableName = "knight_skill", primaryKeys = ["accountId", "knightKey", "skillKey"])
+data class SkillEntity(
+    val accountId: Long,
+    val knightKey: String,
+    val skillKey: String,
+    val name: String,
+    val level: Int,
+    val maxLevel: Int,
+    val observedAt: Long,
+)

@@ -78,7 +78,7 @@ class Repository(val db: CoachDb) {
             }
 
             // Leituras sem nível só interessam se o nome já é conhecido (evita lixo como rótulos de UI virarem "cavaleiros").
-            analysis.knights.filter { it.level != null || catalogAll.any { c -> Norm.similarity(c.name, it.rawName) >= 0.9 } }
+            analysis.knights.filter { it.level != null || it.strong || catalogAll.any { c -> Norm.similarity(c.name, it.rawName) >= 0.9 } }
                 .forEach { applyReading(it, analysis.kind) }
 
             // Telas não-próprias: só reconhece nomes JÁ conhecidos (catálogo) e marca "visto em outro lugar".
@@ -86,6 +86,17 @@ class Repository(val db: CoachDb) {
             if (analysis.kind in setOf(ScreenKind.SUMMON_BANNER, ScreenKind.ENEMY_PREVIEW, ScreenKind.PICK_BAN, ScreenKind.PVP_LOBBY)) {
                 nameCandidates.forEach { n ->
                     if (catalogAll.any { Norm.similarity(it.name, n) >= 0.9 }) applyReading(KnightReading(n, null, 0.6), analysis.kind)
+                }
+            }
+
+            // Habilidades: só para cavaleiro JÁ confirmado como possuído (a aba não prova posse por si só)
+            for (rd in analysis.knights.filter { it.skills.isNotEmpty() }) {
+                val own = existingAll.maxByOrNull { Norm.similarity(it.displayName, rd.rawName) }
+                    ?.takeIf { Norm.similarity(it.displayName, rd.rawName) >= 0.86 && it.status == KnightStatus.CONFIRMED.name } ?: continue
+                for (s in rd.skills) {
+                    val sk = Norm.key(s.name)
+                    val prev = dao.skillsOnce(accountId, own.key).firstOrNull { it.skillKey == sk }
+                    if (prev == null || s.level >= prev.level) dao.upsertSkill(SkillEntity(accountId, own.key, sk, s.name, s.level, s.max, now))
                 }
             }
 
@@ -141,6 +152,6 @@ class Repository(val db: CoachDb) {
 
     suspend fun deleteAccountData(acc: Long) = db.withTransaction {
         dao.clearObservations(acc); dao.clearSessions(acc); dao.clearKnights(acc); dao.clearHistory(acc)
-        dao.clearResources(acc); dao.clearIssues(acc); dao.clearBattles(acc); dao.clearTeams(acc); dao.clearRecs(acc)
+        dao.clearResources(acc); dao.clearIssues(acc); dao.clearBattles(acc); dao.clearTeams(acc); dao.clearSkills(acc); dao.clearRecs(acc)
     }
 }

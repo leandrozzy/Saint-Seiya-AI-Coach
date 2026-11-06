@@ -73,6 +73,25 @@ object Stage {
     private fun numbersIn(t: String): List<Int> =
         Regex("(?<![\\p{L}\\d])(\\d[\\d.,]*)(?:\\s*[+\\-~]\\s*\\d[\\d.,]*)?(?![\\p{L}\\d])").findAll(t).mapNotNull { Norm.parseNumber(it.groupValues[1])?.toInt() }.toList()
 
+    private val skillLevel = Regex("n[ií]vel\\W*(\\d{1,2})\\s*/\\s*(\\d{1,2})", RegexOption.IGNORE_CASE)
+    private val skillName = Regex("^[\\p{L}][\\p{L}\\d'’.\\-() ]{2,40}$")
+
+    /** Aba "Habilidade" (Detalhes da Habilidade): cada linha = nome acima de "Nível N /M" + botão Subir de Nível. */
+    fun skills(lines: List<TextLine>, w: Int, h: Int): List<SkillReading> {
+        val right = lines.filter { it.cx > 0.5 * w }
+        val out = LinkedHashMap<String, SkillReading>()
+        for (l in right) {
+            val m = skillLevel.find(l.text) ?: continue
+            val lv = m.groupValues[1].toInt(); val mx = m.groupValues[2].toInt()
+            if (mx !in 1..99 || lv !in 0..mx) continue
+            val name = right.filter { it !== l && it.cy < l.cy && l.cy - it.cy < 0.09 * h && abs((it.left - l.left).toDouble()) < 0.07 * w }
+                .filter { val f = Norm.fold(it.text); !f.contains("subir") && !skillLevel.containsMatchIn(it.text) && skillName.matches(it.text.trim()) }
+                .maxByOrNull { it.cy }?.text?.trim()?.trimEnd('.', '…', ' ') ?: continue
+            if (name.length >= 3) out[Norm.key(name)] = SkillReading(name, lv, mx)
+        }
+        return out.values.toList()
+    }
+
     private fun abs(d: Double) = if (d < 0) -d else d
 
     /** "Nível 11": no painel da direita; aceita "Nível" e o número em linhas separadas. */

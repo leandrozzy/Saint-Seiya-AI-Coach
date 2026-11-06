@@ -49,7 +49,7 @@ object ScreenAnalyzer {
                 // posse só com NÍVEL lido no painel (a grade "Gerenciar" também lista cavaleiros ainda não obtidos)
                 val strong = panelLevel != null && stats.size >= 3
                 val conf = (stage.confidence.coerceIn(0.0, 1.0) * 0.5 + (if (panelLevel != null) 0.4 else 0.1) + (if (strong) 0.1 else 0.0)).coerceIn(0.0, 1.0)
-                knights += KnightReading(name, panelLevel, conf, stage.stars, Stage.cleanRarity(stage.rarity), stats, strong)
+                knights += KnightReading(name, panelLevel, conf, stage.stars, Stage.cleanRarity(stage.rarity), stats, strong, Stage.skills(lines, imgW, imgH))
             }
         }
         // "Total possuído: 113" (rodapé de Gerenciar): métrica oficial do jogo para medir a cobertura
@@ -61,7 +61,7 @@ object ScreenAnalyzer {
         val outcome = if (kind == ScreenKind.BATTLE_RESULT) {
             val f = lines.map { Norm.fold(it.text) }
             fun has(vararg w: String) = f.any { l -> w.any { Regex("(^|[^a-z])$it([^a-z]|$)").containsMatchIn(l) } }
-            val win = has("win", "vitoria", "victory", "victoria"); val lose = has("lose", "derrota", "defeat", "fracasso")
+            val win = has("win", "venceu", "vitoria", "victory", "victoria"); val lose = has("lose", "derrota", "defeat", "fracasso")
             when { win && !lose -> "VICTORY"; lose && !win -> "DEFEAT"; else -> null }
         } else null
         return ScreenAnalysis(kind, score, knights, resources, outcome, lines.size)

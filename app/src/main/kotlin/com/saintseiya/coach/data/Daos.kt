@@ -33,6 +33,12 @@ interface CoachDao {
     @Insert suspend fun insertHistory(h: KnightHistoryEntity)
     @Query("SELECT * FROM knight_history WHERE accountId=:acc AND `key`=:key ORDER BY at DESC") fun history(acc: Long, key: String): Flow<List<KnightHistoryEntity>>
 
+    // habilidades
+    @Upsert suspend fun upsertSkill(s: SkillEntity)
+    @Query("SELECT * FROM knight_skill WHERE accountId=:acc AND knightKey=:key") suspend fun skillsOnce(acc: Long, key: String): List<SkillEntity>
+    @Query("SELECT * FROM knight_skill WHERE accountId=:acc AND knightKey=:key ORDER BY name") fun skills(acc: Long, key: String): Flow<List<SkillEntity>>
+    @Query("DELETE FROM knight_skill WHERE accountId=:acc") suspend fun clearSkills(acc: Long)
+
     // recursos
     @Upsert suspend fun upsertResource(r: ResourceEntity)
     @Query("SELECT * FROM resource WHERE accountId=:acc ORDER BY label") fun resources(acc: Long): Flow<List<ResourceEntity>>

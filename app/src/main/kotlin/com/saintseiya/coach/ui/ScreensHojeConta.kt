@@ -319,6 +319,7 @@ private fun AddKnightDialog(onDismiss: () -> Unit, onAdd: (String, Int?) -> Unit
 @Composable
 private fun KnightDialog(vm: AppViewModel, k: KnightEntity, onDismiss: () -> Unit) {
     val hist by vm.historyOf(k.key).collectAsState(emptyList())
+    val skills by vm.skillsOf(k.key).collectAsState(emptyList())
     var lv by remember(k.key, k.level) { mutableStateOf(k.level?.toString() ?: "") }
     AlertDialog(onDismissRequest = onDismiss, confirmButton = { TextButton(onDismiss) { Text("Fechar") } },
         title = { Text(k.displayName) },
@@ -347,6 +348,9 @@ private fun KnightDialog(vm: AppViewModel, k: KnightEntity, onDismiss: () -> Uni
                         if (k.status != "REJECTED") OutlinedButton({ vm.setStatus(k.key, KnightStatus.REJECTED); onDismiss() }) { Text("Não possuo") }
                     }
                 }
+                item { H("Habilidades lidas") }
+                if (skills.isEmpty()) item { Small("Abra Aprimorar › Habilidade deste cavaleiro com a leitura ligada.") }
+                items(skills) { s -> Small("${s.name} — nível ${s.level}/${s.maxLevel}") }
                 item { H("Histórico de mudanças") }
                 if (hist.isEmpty()) item { Small("Sem mudanças registradas.") }
                 items(hist) { h -> Small("${fmtTime(h.at)} · ${h.field}: ${h.oldValue ?: "?"} → ${h.newValue ?: "?"} (${if (h.origin == "MANUAL") "manual" else "leitura #${h.observationId}"})") }

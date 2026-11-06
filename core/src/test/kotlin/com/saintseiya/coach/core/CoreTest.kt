@@ -231,3 +231,24 @@ class VisualAnchorTest {
         assertEquals(ScreenKind.TEAM_FORMATION, ScreenClassifier.classify(listOf(at("Frmação", 0.9, 0.3), at("Salvar", 0.9, 0.8))).first)
     }
 }
+
+class SkillsTest {
+    @Test fun skillTabReadsNamesAndLevels() {
+        val lines = listOf(at("Aprimorar", 0.14, 0.035), at("Detalhes da Habilidade", 0.7, 0.07, 300),
+            at("Espada Sagrada.S...", 0.66, 0.22, 260), at("Nível 1 /5", 0.64, 0.27, 120), at("Subir de Nível", 0.82, 0.25, 140),
+            at("Espada Sagrada.T...", 0.66, 0.43, 260), at("Nível 2 /5", 0.64, 0.48, 120),
+            at("Espada Sagrada (Passiva)", 0.68, 0.63, 300), at("Nível 1 /5", 0.64, 0.68, 120))
+        val s = Stage.skills(lines, W, H)
+        assertEquals(listOf("Espada Sagrada.S" to 1, "Espada Sagrada.T" to 2, "Espada Sagrada (Passiva)" to 1), s.map { it.name to it.level })
+        assertTrue(s.all { it.max == 5 })
+        val a = ScreenAnalyzer.analyze(lines, W, H, StageStrip("Shura de Capricórnio", "S", 3, 0.8))
+        assertEquals(ScreenKind.KNIGHT_DETAIL, a.kind); assertEquals(3, a.knights.single().skills.size)
+    }
+    @Test fun cosmoScreen() {
+        assertEquals(ScreenKind.COSMOS, ScreenClassifier.classify(listOf(at("Cosmo Divino", 0.1, 0.03), at("Desequipar Tudo", 0.8, 0.9), at("Inventário de Cosmos", 0.9, 0.9))).first)
+    }
+    @Test fun storyVictoryMessage() {
+        val a = ScreenAnalyzer.analyze(listOf(at("Você venceu a luta. Saída automática em 4 segundos", 0.5, 0.02, 600), at("Recompensas", 0.5, 0.4)), W, H)
+        assertEquals("VICTORY", a.battleOutcome)
+    }
+}

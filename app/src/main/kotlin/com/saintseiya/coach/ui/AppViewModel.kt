@@ -97,6 +97,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         knights.value.filter { it.status == "CANDIDATE" && it.level != null }.forEach { repo.setStatus(activeAccount.value, it.key, KnightStatus.CONFIRMED) }
     }
     fun saveTeam(name: String, keys: List<String>, note: String?) = viewModelScope.launch { repo.saveTeam(activeAccount.value, name.ifBlank { "Equipe" }, keys, note) }
+    fun skillsOf(key: String) = activeAccount.flatMapLatest { dao.skills(it, key) }
     fun historyOf(key: String) = activeAccount.flatMapLatest { dao.history(it, key) }
 
     // importação de screenshots (mesma pipeline da captura ao vivo)

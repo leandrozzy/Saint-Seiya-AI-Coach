@@ -47,7 +47,11 @@ data class KnightReading(
     val rarity: String? = null,
     val stats: Map<String, Int> = emptyMap(),
     val strong: Boolean = false,
+    val skills: List<SkillReading> = emptyList(),
 )
+
+/** Habilidade lida na aba "Habilidade": nome (pode vir truncado pelo jogo) e nível atual/máximo. */
+data class SkillReading(val name: String, val level: Int, val max: Int)
 
 /** Faixa vertical do nome (lida pelo app girando o recorte), raridade (letra) e estrelas (cor). */
 data class StageStrip(val name: String?, val rarity: String?, val stars: Int?, val confidence: Double)

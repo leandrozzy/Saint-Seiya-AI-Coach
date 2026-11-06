@@ -12,10 +12,10 @@ import androidx.room.RoomDatabase
 @Database(
     entities = [
         AccountEntity::class, SessionEntity::class, ObservationEntity::class, KnightEntity::class,
-        KnightHistoryEntity::class, ResourceEntity::class, IssueEntity::class, BattleEntity::class,
+        KnightHistoryEntity::class, SkillEntity::class, ResourceEntity::class, IssueEntity::class, BattleEntity::class,
         TeamEntity::class, RecommendationLogEntity::class, CatalogEntity::class,
     ],
-    version = 2,
+    version = 3,
     exportSchema = true,
 )
 abstract class CoachDb : RoomDatabase() {
@@ -34,6 +34,12 @@ abstract class CoachDb : RoomDatabase() {
                 override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
                     for (c in listOf("stars INTEGER", "rarity TEXT", "pv INTEGER", "atqC INTEGER", "defC INTEGER", "atqF INTEGER", "defF INTEGER", "vel INTEGER"))
                         db.execSQL("ALTER TABLE knight ADD COLUMN $c")
+                }
+            },
+            // 2→3: habilidades por cavaleiro (tabela nova; nada é apagado)
+            object : androidx.room.migration.Migration(2, 3) {
+                override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                    db.execSQL("CREATE TABLE IF NOT EXISTS knight_skill (accountId INTEGER NOT NULL, knightKey TEXT NOT NULL, skillKey TEXT NOT NULL, name TEXT NOT NULL, level INTEGER NOT NULL, maxLevel INTEGER NOT NULL, observedAt INTEGER NOT NULL, PRIMARY KEY(accountId, knightKey, skillKey))")
                 }
             },
         )
